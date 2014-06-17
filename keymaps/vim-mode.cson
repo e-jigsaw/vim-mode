@@ -18,7 +18,6 @@
   'down': 'vim-mode:move-down'
 
   'w': 'vim-mode:move-to-next-word'
-  'W': 'vim-mode:move-to-next-whole-word'
   'e': 'vim-mode:move-to-end-of-word'
   'E': 'vim-mode:move-to-end-of-whole-word'
   'b': 'vim-mode:move-to-previous-word'
