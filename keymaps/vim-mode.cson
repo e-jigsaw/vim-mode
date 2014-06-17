@@ -41,7 +41,6 @@
   'G': 'vim-mode:move-to-line'
   'H': 'vim-mode:move-to-top-of-screen'
   'L': 'vim-mode:move-to-bottom-of-screen'
-  'M': 'vim-mode:move-to-middle-of-screen'
 
   'd': 'vim-mode:delete'
   'D': 'vim-mode:delete-to-last-character-of-line'
@@ -86,10 +85,6 @@
   'ctrl-w q': 'core:close'
   'g t': 'pane:show-next-item'
   'g T': 'pane:show-previous-item'
-
-  'm': 'vim-mode:mark'
-  '`': 'vim-mode:move-to-mark-literal'
-  '\'': 'vim-mode:move-to-mark'
 
   'f': 'vim-mode:find'
   'F': 'vim-mode:find-backwards'
