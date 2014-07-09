@@ -23,6 +23,24 @@ describe "Operators", ->
     opts.raw = true
     keydown(key, opts)
 
+  describe "cancel operation is robust", ->
+    it "can call cancel operation, even if no operator pending", ->
+      # cancel operation pushes an empty input operation
+      # doing this without a pending operation throws an exception
+      expect(-> vimState.pushOperations(new Input(''))).toThrow()
+
+      # make sure commandModeInputView is created
+      keydown('/')
+      expect(vimState.isOperatorPending()).toBe true
+      editor.commandModeInputView.viewModel.cancel()
+
+      # now again cancel op, although there is none pending
+      expect(vimState.isOperatorPending()).toBe false
+
+      # which should not raise an exception
+      expect(-> editor.commandModeInputView.viewModel.cancel()).not.toThrow()
+
+
   describe "the x keybinding", ->
     describe "on a line with content", ->
       beforeEach ->
@@ -256,6 +274,59 @@ describe "Operators", ->
         expect(vimState.getRegister('"').text).toBe "abcde"
         expect(editorView).not.toHaveClass('operator-pending-mode')
         expect(editorView).toHaveClass('command-mode')
+
+    describe "when followed by an j", ->
+      beforeEach ->
+        originalText = "12345\nabcde\nABCDE"
+        editor.setText(originalText)
+
+        describe "on the beginning of the file", ->
+          editor.setCursorScreenPosition([0, 0])
+          it "deletes the next two lines", ->
+            keydown('d')
+            keydown('j')
+            expect(editor.getText()).toBe("ABCDE")
+
+        describe "on the end of the file", ->
+          editor.setCursorScreenPosition([4,2])
+          it "deletes nothing", ->
+            keydown('d')
+            keydown('j')
+            expect(editor.getText()).toBe(originalText)
+
+        describe "on the middle of second line", ->
+          editor.setCursorScreenPosition([2,1])
+          it "deletes the last two lines", ->
+            keydown('d')
+            keydown('j')
+            expect(editor.getText()).toBe("12345")
+
+    describe "when followed by an k", ->
+      beforeEach ->
+        originalText = "12345\nabcde\nABCDE"
+        editor.setText(originalText)
+
+        describe "on the end of the file", ->
+          editor.setCursorScreenPosition([4, 2])
+          it "deletes the bottom two lines", ->
+            keydown('d')
+            keydown('k')
+            expect(editor.getText()).toBe("ABCDE")
+
+        describe "on the beginning of the file", ->
+          editor.setCursorScreenPosition([0,0])
+          it "deletes nothing", ->
+            keydown('d')
+            keydown('k')
+            expect(editor.getText()).toBe(originalText)
+
+        describe "when on the middle of second line", ->
+          editor.setCursorScreenPosition([2,1])
+          it "deletes the first two lines", ->
+            keydown('d')
+            keydown('k')
+            expect(editor.getText()).toBe("12345")
+
 
   describe "the D keybinding", ->
     beforeEach ->

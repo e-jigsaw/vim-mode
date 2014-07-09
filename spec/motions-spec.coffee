@@ -25,7 +25,7 @@ describe "Motions", ->
 
   describe "simple motions", ->
     beforeEach ->
-      editor.setText("12345\nabcde\nABCDE")
+      editor.setText("12345\nabcd\nABCDE")
       editor.setCursorScreenPosition([1, 1])
 
     describe "the h keybinding", ->
@@ -53,6 +53,37 @@ describe "Motions", ->
         keydown('j')
         expect(editor.getCursorScreenPosition()).toEqual [2, 1]
 
+      it "moves the cursor to the end of the line, not past it", ->
+        editor.setCursorScreenPosition([0,4])
+
+        keydown('j')
+        expect(editor.getCursorScreenPosition()).toEqual [1, 3]
+
+      it "remembers the position it column it was in after moving to shorter line", ->
+        editor.setCursorScreenPosition([0,4])
+
+        keydown('j')
+        expect(editor.getCursorScreenPosition()).toEqual [1, 3]
+
+        keydown('j')
+        expect(editor.getCursorScreenPosition()).toEqual [2, 4]
+
+      describe "when visual mode", ->
+        beforeEach ->
+          keydown('v')
+
+        it "moves the cursor down", ->
+          keydown('j')
+          expect(editor.getCursorScreenPosition()).toEqual [2, 1]
+
+        it "don't go over after the last line", ->
+          keydown('j')
+          expect(editor.getCursorScreenPosition()).toEqual [2, 1]
+
+        it "selects the text while moving", ->
+          keydown('j')
+          expect(editor.getSelectedText()).toBe "bcd\nA"
+
     describe "the k keybinding", ->
       it "moves the cursor up, but not to the beginning of the first line", ->
         keydown('k')
@@ -62,14 +93,14 @@ describe "Motions", ->
         expect(editor.getCursorScreenPosition()).toEqual [0, 1]
 
     describe "the l keybinding", ->
-      beforeEach -> editor.setCursorScreenPosition([1, 3])
+      beforeEach -> editor.setCursorScreenPosition([1, 2])
 
       it "moves the cursor right, but not to the next line", ->
         keydown('l')
-        expect(editor.getCursorScreenPosition()).toEqual [1, 4]
+        expect(editor.getCursorScreenPosition()).toEqual [1, 3]
 
         keydown('l')
-        expect(editor.getCursorScreenPosition()).toEqual [1, 4]
+        expect(editor.getCursorScreenPosition()).toEqual [1, 3]
 
   describe "the w keybinding", ->
     beforeEach -> editor.setText("ab cde1+- \n xyz\n\nzip")
@@ -493,7 +524,7 @@ describe "Motions", ->
 
   describe "the $ keybinding", ->
     beforeEach ->
-      editor.setText("  abcde\n\n")
+      editor.setText("  abcde\n\n1234567890")
       editor.setCursorScreenPosition([0, 4])
 
     describe "as a motion from empty line", ->
@@ -509,13 +540,20 @@ describe "Motions", ->
       it "moves the cursor to the end of the line", ->
         expect(editor.getCursorScreenPosition()).toEqual [0, 6]
 
+      it "should remain in the last column when moving down", ->
+        keydown('j')
+        expect(editor.getCursorScreenPosition()).toEqual [1, 0]
+
+        keydown('j')
+        expect(editor.getCursorScreenPosition()).toEqual [2, 9]
+
     describe "as a selection", ->
       beforeEach ->
         keydown('d')
         keydown('$')
 
       it "selects to the beginning of the lines", ->
-        expect(editor.getText()).toBe "  ab\n\n"
+        expect(editor.getText()).toBe "  ab\n\n1234567890"
         expect(editor.getCursorScreenPosition()).toEqual [0, 3]
 
   # FIXME: this doesn't work as we can't determine if this is a motion
@@ -531,40 +569,290 @@ describe "Motions", ->
       it "moves the cursor to the beginning of the line", ->
         expect(editor.getCursorScreenPosition()).toEqual [0,0]
 
+  describe "the - keybinding", ->
+    beforeEach ->
+      editor.setText("abcdefg\n  abc\n  abc\n")
+
+    describe "from the middle of a line", ->
+      beforeEach -> editor.setCursorScreenPosition([1, 3])
+
+      describe "as a motion", ->
+        beforeEach -> keydown('-')
+
+        it "moves the cursor to the first character of the previous line", ->
+          expect(editor.getCursorScreenPosition()).toEqual [0, 0]
+
+      describe "as a selection", ->
+        beforeEach ->
+          keydown('d')
+          keydown('-')
+
+        it "deletes the current and previous line", ->
+          expect(editor.getText()).toBe "  abc\n"
+          # commented out because the column is wrong due to a bug in `k`; re-enable when `k` is fixed
+          #expect(editor.getCursorScreenPosition()).toEqual [0, 3]
+
+    describe "from the first character of a line indented the same as the previous one", ->
+      beforeEach -> editor.setCursorScreenPosition([2, 2])
+
+      describe "as a motion", ->
+        beforeEach -> keydown('-')
+
+        it "moves to the first character of the previous line (directly above)", ->
+          expect(editor.getCursorScreenPosition()).toEqual [1, 2]
+
+      describe "as a selection", ->
+        beforeEach ->
+          keydown('d')
+          keydown('-')
+
+        it "selects to the first character of the previous line (directly above)", ->
+          expect(editor.getText()).toBe "abcdefg\n"
+          # commented out because the column is wrong due to a bug in `k`; re-enable when `k` is fixed
+          #expect(editor.getCursorScreenPosition()).toEqual [0, 2]
+
+    describe "from the beginning of a line preceded by an indented line", ->
+      beforeEach -> editor.setCursorScreenPosition([2, 0])
+
+      describe "as a motion", ->
+        beforeEach -> keydown('-')
+
+        it "moves the cursor to the first character of the previous line", ->
+          expect(editor.getCursorScreenPosition()).toEqual [1, 2]
+
+      describe "as a selection", ->
+        beforeEach ->
+          keydown('d')
+          keydown('-')
+
+        it "selects to the first character of the previous line", ->
+          expect(editor.getText()).toBe "abcdefg\n"
+          # commented out because the column is wrong due to a bug in `k`; re-enable when `k` is fixed
+          #expect(editor.getCursorScreenPosition()).toEqual [0, 0]
+
+    describe "with a count", ->
+      beforeEach ->
+        editor.setText("1\n2\n3\n4\n5\n6\n")
+        editor.setCursorScreenPosition([4, 0])
+
+      describe "as a motion", ->
+        beforeEach ->
+          keydown('3')
+          keydown('-')
+
+        it "moves the cursor to the first character of that many lines previous", ->
+          expect(editor.getCursorScreenPosition()).toEqual [1, 0]
+
+      describe "as a selection", ->
+        beforeEach ->
+          keydown('d')
+          keydown('3')
+          keydown('-')
+
+        it "deletes the current line plus that many previous lines", ->
+          expect(editor.getText()).toBe "1\n6\n"
+          # commented out because the column is wrong due to a bug in `k`; re-enable when `k` is fixed
+          #expect(editor.getCursorScreenPosition()).toEqual [1, 0]
+
+  describe "the + keybinding", ->
+    beforeEach ->
+      editor.setText("  abc\n  abc\nabcdefg\n")
+
+    describe "from the middle of a line", ->
+      beforeEach -> editor.setCursorScreenPosition([1, 3])
+
+      describe "as a motion", ->
+        beforeEach -> keydown('+')
+
+        it "moves the cursor to the first character of the next line", ->
+          expect(editor.getCursorScreenPosition()).toEqual [2, 0]
+
+      describe "as a selection", ->
+        beforeEach ->
+          keydown('d')
+          keydown('+')
+
+        it "deletes the current and next line", ->
+          expect(editor.getText()).toBe "  abc\n"
+          # commented out because the column is wrong due to a bug in `j`; re-enable when `j` is fixed
+          #expect(editor.getCursorScreenPosition()).toEqual [0, 3]
+
+    describe "from the first character of a line indented the same as the next one", ->
+      beforeEach -> editor.setCursorScreenPosition([0, 2])
+
+      describe "as a motion", ->
+        beforeEach -> keydown('+')
+
+        it "moves to the first character of the next line (directly below)", ->
+          expect(editor.getCursorScreenPosition()).toEqual [1, 2]
+
+      describe "as a selection", ->
+        beforeEach ->
+          keydown('d')
+          keydown('+')
+
+        it "selects to the first character of the next line (directly below)", ->
+          expect(editor.getText()).toBe "abcdefg\n"
+          # commented out because the column is wrong due to a bug in `j`; re-enable when `j` is fixed
+          #expect(editor.getCursorScreenPosition()).toEqual [0, 2]
+
+    describe "from the beginning of a line followed by an indented line", ->
+      beforeEach -> editor.setCursorScreenPosition([0, 0])
+
+      describe "as a motion", ->
+        beforeEach -> keydown('+')
+
+        it "moves the cursor to the first character of the next line", ->
+          expect(editor.getCursorScreenPosition()).toEqual [1, 2]
+
+      describe "as a selection", ->
+        beforeEach ->
+          keydown('d')
+          keydown('+')
+
+        it "selects to the first character of the next line", ->
+          expect(editor.getText()).toBe "abcdefg\n"
+          # commented out because the column is wrong due to a bug in `j`; re-enable when `j` is fixed
+          #expect(editor.getCursorScreenPosition()).toEqual [0, 0]
+
+    describe "with a count", ->
+      beforeEach ->
+        editor.setText("1\n2\n3\n4\n5\n6\n")
+        editor.setCursorScreenPosition([1, 0])
+
+      describe "as a motion", ->
+        beforeEach ->
+          keydown('3')
+          keydown('+')
+
+        it "moves the cursor to the first character of that many lines following", ->
+          expect(editor.getCursorScreenPosition()).toEqual [4, 0]
+
+      describe "as a selection", ->
+        beforeEach ->
+          keydown('d')
+          keydown('3')
+          keydown('+')
+
+        it "deletes the current line plus that many following lines", ->
+          expect(editor.getText()).toBe "1\n6\n"
+          # commented out because the column is wrong due to a bug in `j`; re-enable when `j` is fixed
+          #expect(editor.getCursorScreenPosition()).toEqual [1, 0]
+
+  describe "the enter keybinding", ->
+    keydownCodeForEnter = '\r' # 'enter' does not work
+    startingText = "  abc\n  abc\nabcdefg\n"
+
+    describe "from the middle of a line", ->
+      startingCursorPosition = [1, 3]
+
+      describe "as a motion", ->
+        it "acts the same as the + keybinding", ->
+          # do it with + and save the results
+          editor.setText(startingText)
+          editor.setCursorScreenPosition(startingCursorPosition)
+          keydown('+')
+          referenceCursorPosition = editor.getCursorScreenPosition()
+          # do it again with enter and compare the results
+          editor.setText(startingText)
+          editor.setCursorScreenPosition(startingCursorPosition)
+          keydown(keydownCodeForEnter)
+          expect(editor.getCursorScreenPosition()).toEqual referenceCursorPosition
+
+      describe "as a selection", ->
+        it "acts the same as the + keybinding", ->
+          # do it with + and save the results
+          editor.setText(startingText)
+          editor.setCursorScreenPosition(startingCursorPosition)
+          keydown('d')
+          keydown('+')
+          referenceText = editor.getText()
+          referenceCursorPosition = editor.getCursorScreenPosition()
+          # do it again with enter and compare the results
+          editor.setText(startingText)
+          editor.setCursorScreenPosition(startingCursorPosition)
+          keydown('d')
+          keydown(keydownCodeForEnter)
+          expect(editor.getText()).toEqual referenceText
+          expect(editor.getCursorScreenPosition()).toEqual referenceCursorPosition
+
   describe "the gg keybinding", ->
     beforeEach ->
       editor.setText(" 1abc\n 2\n3\n")
       editor.setCursorScreenPosition([0, 2])
 
     describe "as a motion", ->
-      beforeEach ->
-        keydown('g')
-        keydown('g')
+      describe "in command mode", ->
+        beforeEach ->
+          keydown('g')
+          keydown('g')
 
-      it "moves the cursor to the beginning of the first line", ->
-        expect(editor.getCursorScreenPosition()).toEqual [0, 1]
+        it "moves the cursor to the beginning of the first line", ->
+          expect(editor.getCursorScreenPosition()).toEqual [0, 1]
+
+      describe "in linewise visual mode", ->
+        beforeEach ->
+          editor.setCursorScreenPosition([1, 0])
+          vimState.activateVisualMode('linewise')
+          keydown('g')
+          keydown('g')
+
+        it "selects to the first line in the file", ->
+          expect(editor.getSelectedText()).toBe " 1abc\n 2\n"
+
+        it "moves the cursor to a specified line", ->
+          expect(editor.getCursorScreenPosition()).toEqual [0, 0]
+
+      describe "in characterwise visual mode", ->
+        beforeEach ->
+          editor.setCursorScreenPosition([1, 1])
+          vimState.activateVisualMode()
+          keydown('g')
+          keydown('g')
+
+        it "selects to the first line in the file", ->
+          expect(editor.getSelectedText()).toBe "1abc\n 2"
+
+        it "moves the cursor to a specified line", ->
+          expect(editor.getCursorScreenPosition()).toEqual [0, 1]
 
     describe "as a repeated motion", ->
-      beforeEach ->
-        keydown('2')
-        keydown('g')
-        keydown('g')
+      describe "in command mode", ->
+        beforeEach ->
+          keydown('2')
+          keydown('g')
+          keydown('g')
 
-      it "moves the cursor to a specified line", ->
-        expect(editor.getCursorScreenPosition()).toEqual [1, 1]
+        it "moves the cursor to a specified line", ->
+          expect(editor.getCursorScreenPosition()).toEqual [1, 1]
 
-    describe "as a selection", ->
-      beforeEach ->
-        editor.setCursorScreenPosition([1, 1])
-        vimState.activateVisualMode()
-        keydown('g')
-        keydown('g')
+      describe "in linewise visual motion", ->
+        beforeEach ->
+          editor.setCursorScreenPosition([2, 0])
+          vimState.activateVisualMode('linewise')
+          keydown('2')
+          keydown('g')
+          keydown('g')
 
-      it "selects to the first line in the file", ->
-        expect(editor.getSelectedText()).toBe " 1abc\n 2"
+        it "selects to a specified line", ->
+          expect(editor.getSelectedText()).toBe " 2\n3\n"
 
-      it "moves the cursor to a specified line", ->
-        expect(editor.getCursorScreenPosition()).toEqual [0, 0]
+        it "moves the cursor to a specified line", ->
+          expect(editor.getCursorScreenPosition()).toEqual [1, 0]
+
+      describe "in characterwise visual motion", ->
+        beforeEach ->
+          editor.setCursorScreenPosition([2, 0])
+          vimState.activateVisualMode()
+          keydown('2')
+          keydown('g')
+          keydown('g')
+
+        it "selects to a first character of specified line", ->
+          expect(editor.getSelectedText()).toBe "2\n3"
+
+        it "moves the cursor to a specified line", ->
+          expect(editor.getCursorScreenPosition()).toEqual [1, 1]
 
   describe "the G keybinding", ->
     beforeEach ->
