@@ -1,9 +1,17 @@
+'.editor.vim-mode':
+  'escape': 'vim-mode:reset-command-mode'
+  'ctrl-c': 'vim-mode:reset-command-mode'
+  'ctrl-[': 'vim-mode:reset-command-mode'
+
 '.editor.vim-mode:not(.command-mode)':
   'escape': 'vim-mode:activate-command-mode'
   'ctrl-[': 'vim-mode:activate-command-mode'
 
 '.platform-darwin .editor.vim-mode:not(.command-mode)':
   'ctrl-c': 'vim-mode:activate-command-mode'
+
+'.editor.vim-mode.insert-mode':
+  'ctrl-w': 'editor:delete-to-beginning-of-word'
 
 '.editor.vim-mode:not(.insert-mode)':
   'h': 'vim-mode:move-left'
@@ -30,12 +38,22 @@
   '+': 'vim-mode:move-to-first-character-of-line-down'
   'enter': 'vim-mode:move-to-first-character-of-line-down'
   'g g': 'vim-mode:move-to-start-of-file'
-  'ctrl-u': 'core:page-up'
+  'ctrl-u': 'vim-mode:scroll-half-screen-up'
   'ctrl-b': 'core:page-up'
-  'ctrl-d': 'core:page-down'
+  'ctrl-d': 'vim-mode:scroll-half-screen-down'
   'ctrl-f': 'core:page-down'
   'ctrl-e': 'vim-mode:scroll-down'
   'ctrl-y': 'vim-mode:scroll-up'
+  'z enter': 'vim-mode:scroll-cursor-to-top'
+  'z t': 'vim-mode:scroll-cursor-to-top-leave'
+  'z .': 'vim-mode:scroll-cursor-to-middle'
+  'z z': 'vim-mode:scroll-cursor-to-middle-leave'
+  'z -': 'vim-mode:scroll-cursor-to-bottom'
+  'z b': 'vim-mode:scroll-cursor-to-bottom-leave'
+  'z M': 'editor:fold-all'
+  'z R': 'editor:unfold-all'
+  'z c': 'editor:fold-current-row'
+  'z o': 'editor:unfold-current-row'
   'G': 'vim-mode:move-to-line'
   'H': 'vim-mode:move-to-top-of-screen'
   'L': 'vim-mode:move-to-bottom-of-screen'
@@ -115,9 +133,6 @@
   'v': 'vim-mode:activate-characterwise-visual-mode'
   'V': 'vim-mode:activate-linewise-visual-mode'
   'ctrl-v': 'vim-mode:activate-blockwise-visual-mode'
-  'escape': 'vim-mode:reset-command-mode'
-  'ctrl-c': 'vim-mode:reset-command-mode'
-  'ctrl-[': 'vim-mode:reset-command-mode'
 
   'u': 'core:undo'
   'ctrl-r': 'core:redo'
@@ -195,6 +210,7 @@
   'a (': 'vim-mode:select-around-parentheses'
   'a )': 'vim-mode:select-around-parentheses'
   'a b': 'vim-mode:select-around-parentheses'
+  'x': 'vim-mode:reset-command-mode'
 
 '.editor.vim-mode.visual-mode':
   'x': 'vim-mode:delete'

@@ -2,12 +2,12 @@ _ = require 'underscore-plus'
 {MotionWithInput} = require './general-motions'
 SearchViewModel = require '../view-models/search-view-model'
 {Input} = require '../view-models/view-model'
-{$$, Point, Range} = require 'atom'
+{Point, Range} = require 'atom'
 
 class SearchBase extends MotionWithInput
   @currentSearch: null
-  constructor: (@editorView, @vimState) ->
-    super(@editorView, @vimState)
+  constructor: (@editor, @vimState) ->
+    super(@editor, @vimState)
     Search.currentSearch = @
     @reverse = @initiallyReversed = false
 
@@ -49,11 +49,19 @@ class SearchBase extends MotionWithInput
       atom.beep()
 
   scan: ->
+    addToMod = (modifier) =>
+      if mod.indexOf(modifier) == -1
+        return mod += modifier
+      else return
     term = @input.characters
-    mod = 'g'
+    mod = ''
+    addToMod('g')
+    usingSmartcase = atom.config.get 'vim-mode.useSmartcaseForSearch'
+    if usingSmartcase && !term.match('[A-Z]')
+      addToMod('i')
     if term.indexOf('\\c') != -1
       term = term.replace('\\c','')
-      mod += 'i'
+      addToMod('i')
     regexp =
       try
         new RegExp(term, mod)
@@ -82,8 +90,8 @@ class SearchBase extends MotionWithInput
     @matches = after
 
 class Search extends SearchBase
-  constructor: (@editorView, @vimState) ->
-    super(@editorView, @vimState)
+  constructor: (@editor, @vimState) ->
+    super(@editor, @vimState)
     @viewModel = new SearchViewModel(@)
     Search.currentSearch = @
     @reverse = @initiallyReversed = false
@@ -94,8 +102,8 @@ class Search extends SearchBase
 
 class SearchCurrentWord extends SearchBase
   @keywordRegex: null
-  constructor: (@editorView, @vimState) ->
-    super(@editorView, @vimState)
+  constructor: (@editor, @vimState) ->
+    super(@editor, @vimState)
     Search.currentSearch = @
     @reverse = @initiallyReversed = false
 
@@ -107,7 +115,7 @@ class SearchCurrentWord extends SearchBase
     @input = new Input(@getCurrentWordMatch())
 
   getCurrentWord: (onRecursion=false) ->
-    cursor = @editor.getCursor()
+    cursor = @editor.getLastCursor()
     wordRange  = cursor.getCurrentWordBufferRange(wordRegex: @keywordRegex)
     characters = @editor.getTextInBufferRange(wordRange)
 
@@ -123,8 +131,8 @@ class SearchCurrentWord extends SearchBase
       characters
 
   cursorIsOnEOF: ->
-    cursor = @editor.getCursor()
-    pos = cursor.getMoveNextWordBoundaryBufferPosition(wordRegex: @keywordRegex)
+    cursor = @editor.getLastCursor()
+    pos = cursor.getNextWordBoundaryBufferPosition(wordRegex: @keywordRegex)
     eofPos = @editor.getEofBufferPosition()
     pos.row == eofPos.row && pos.column == eofPos.column
 
@@ -143,8 +151,8 @@ class SearchCurrentWord extends SearchBase
 
 class BracketMatchingMotion extends SearchBase
   @keywordRegex: null
-  constructor: (@editorView, @vimState) ->
-    super(@editorView, @vimState)
+  constructor: (@editor, @vimState) ->
+    super(@editor, @vimState)
     Search.currentSearch = @
     @reverse = @initiallyReversed = false
     @characters         = [')','(','}','{',']','[']
@@ -155,7 +163,7 @@ class BracketMatchingMotion extends SearchBase
     @input = new Input(@getCurrentWordMatch())
 
   getCurrentWord: (onRecursion=false) ->
-    cursor = @editor.getCursor()
+    cursor = @editor.getLastCursor()
     tempPoint = cursor.getBufferPosition().toArray()
     @character = @editor.getTextInBufferRange([cursor.getBufferPosition(),new Point(tempPoint[0],tempPoint[1] + 1)])
     @startUp = false;

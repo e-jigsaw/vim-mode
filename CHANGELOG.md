@@ -1,5 +1,37 @@
 ## HEAD
 
+## 0.22
+
+* Fixed a stylesheet issue that caused visual glitches when vim-mode
+  was disabled with the Shadow DOM turned on.
+
+## 0.21
+
+* Fix issue where search panel was not removed properly
+* Updated the stylesheet for compatibility with shadow-DOM-enabled editors
+
+## 0.20
+* Ctrl-w for delete-to-beginning-of-word in insert mode
+* Folding key-bindings
+* Remove more deprecated APIs
+
+## 0.19.1
+* Fix behavior of ctrl-D, ctrl-U @anvyzhang
+* Fix selection when moving up or down in visual line mode @mdp
+* Remove deprecated APIs
+* Fix interaction with autocomplete
+
+## 0.19
+* Properly re-enable editor input after disabling vim-mode
+
+## 0.17
+* Fix typo
+
+## 0.16
+* Make go-to-line motions work with operators @gittyupagain
+* Allow replacing text with newlines using `r` @dcalhoun
+* Support smart-case in when searching @isaachess
+
 ## 0.14
 * Ctrl-c for command mode on mac only @sgtpepper43
 * Add css to status bar mode for optional custom styling @e-jigsaw

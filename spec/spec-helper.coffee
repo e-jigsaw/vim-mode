@@ -1,64 +1,60 @@
-{EditorView} = require 'atom'
 VimState = require '../lib/vim-state'
+GlobalVimState = require '../lib/global-vim-state'
 VimMode  = require '../lib/vim-mode'
-
-originalKeymap = null
+StatusBarManager = require '../lib/status-bar-manager'
 
 beforeEach ->
   atom.workspace ||= {}
-  VimMode._initializeWorkspaceState()
 
-cacheEditor = (existingEditorView, callback) ->
-  session = null
+getEditorElement = (callback) ->
+  textEditor = null
 
   waitsForPromise ->
-    atom.project.open().then (o) -> session = o
+    atom.project.open().then (e) ->
+      textEditor = e
 
   runs ->
-    if existingEditorView?
-      existingEditorView.edit(session)
-      existingEditorView.vimState = new VimState(existingEditorView)
-      existingEditorView.bindKeys()
-      existingEditorView.enableKeymap()
-    else
-      editorView = new EditorView(session)
-      editorView.simulateDomAttachment()
-      editorView.enableKeymap()
+    element = document.createElement("atom-text-editor")
+    element.setModel(textEditor)
+    element.classList.add('vim-mode')
+    element.vimState = new VimState(element, new StatusBarManager, new GlobalVimState)
 
-      editorView.addClass('vim-mode')
-      editorView.vimState = new VimState(editorView)
+    element.addEventListener "keydown", (e) ->
+      atom.keymaps.handleKeyboardEvent(e)
 
-    view = existingEditorView or editorView
-    history = view.editor.buffer.history
-    history.abortTransaction() if history.currentTransaction?
-    history.clearUndoStack()
+    callback(element)
 
-    callback(view)
-
-mockPlatform = (editorView, platform) ->
+mockPlatform = (editorElement, platform) ->
   wrapper = document.createElement('div')
   wrapper.className = platform
-  wrapper.appendChild(editorView[0])
+  wrapper.appendChild(editorElement)
 
-unmockPlatform = (editorView) ->
-  editorView[0].parentNode.removeChild(editorView[0])
+unmockPlatform = (editorElement) ->
+  editorElement.parentNode.removeChild(editorElement)
+
+dispatchKeyboardEvent = (target, eventArgs...) ->
+  e = document.createEvent('KeyboardEvent')
+  e.initKeyboardEvent(eventArgs...)
+  # 0 is the default, and it's valid ASCII, but it's wrong.
+  Object.defineProperty(e, 'keyCode', get: -> undefined) if e.keyCode is 0
+  target.dispatchEvent e
+
+dispatchTextEvent = (target, eventArgs...) ->
+  e = document.createEvent('TextEvent')
+  e.initTextEvent(eventArgs...)
+  target.dispatchEvent e
 
 keydown = (key, {element, ctrl, shift, alt, meta, raw}={}) ->
-  dispatchKeyboardEvent = (target, eventArgs...) ->
-    e = document.createEvent('KeyboardEvent')
-    e.initKeyboardEvent eventArgs...
-    # 0 is the default, and it's valid ASCII, but it's wrong.
-    Object.defineProperty(e, 'keyCode', get: -> undefined) if e.keyCode is 0
-    target.dispatchEvent e
-
-  dispatchTextEvent = (target, eventArgs...) ->
-    e = document.createEvent('TextEvent')
-    e.initTextEvent eventArgs...
-    target.dispatchEvent e
-
   key = "U+#{key.charCodeAt(0).toString(16)}" unless key == 'escape' || raw?
   element ||= document.activeElement
-  eventArgs = [true, true, null, key, 0, ctrl, alt, shift, meta] # bubbles, cancelable, view, key, location
+  eventArgs = [
+    true, # bubbles
+    true, # cancelable
+    null, # view
+    key,  # key
+    0,    # location
+    ctrl, alt, shift, meta
+  ]
 
   canceled = not dispatchKeyboardEvent(element, 'keydown', eventArgs...)
   dispatchKeyboardEvent(element, 'keypress', eventArgs...)
@@ -67,4 +63,4 @@ keydown = (key, {element, ctrl, shift, alt, meta, raw}={}) ->
        element.value += key
   dispatchKeyboardEvent(element, 'keyup', eventArgs...)
 
-module.exports = { keydown, cacheEditor, mockPlatform, unmockPlatform }
+module.exports = { keydown, getEditorElement, mockPlatform, unmockPlatform }

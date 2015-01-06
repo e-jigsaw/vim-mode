@@ -1,5 +1,6 @@
 _ = require 'underscore-plus'
-{$} = require 'atom'
+{Point, Range} = require 'atom'
+{Emitter, Disposable, CompositeDisposable} = require 'event-kit'
 
 Operators = require './operators/index'
 Prefixes = require './prefixes'
@@ -9,8 +10,6 @@ TextObjects = require './text-objects'
 Utils = require './utils'
 Panes = require './panes'
 Scroll = require './scroll'
-{$$, Point, Range} = require 'atom'
-Marker = require 'atom'
 
 module.exports =
 class VimState
@@ -18,9 +17,12 @@ class VimState
   opStack: null
   mode: null
   submode: null
+  initialSelectedRange: null
 
-  constructor: (@editorView) ->
-    @editor = @editorView.editor
+  constructor: (@editorElement, @statusBarManager, @globalVimState) ->
+    @emitter = new Emitter
+    @subscriptions = new CompositeDisposable
+    @editor = @editorElement.getModel()
     @opStack = []
     @history = []
     @marks = {}
@@ -29,73 +31,19 @@ class VimState
     params.manager = this;
     params.id = 0;
 
+    @editorElement.classList.add("vim-mode")
     @setupCommandMode()
-    @editorView.setInputEnabled?(false)
-    @registerInsertIntercept()
-    @registerInsertTransactionResets()
-    @registerUndoIntercept()
     if atom.config.get 'vim-mode.startInInsertMode'
       @activateInsertMode()
     else
       @activateCommandMode()
 
-    atom.project.eachBuffer (buffer) =>
-      @registerChangeHandler(buffer)
-
-  # Private: Creates a handle to block insertion while in command mode.
-  #
-  # This is currently a bit of a hack. If a user is in command mode they
-  # won't be able to type in any of Atom's dialogs (such as the command
-  # palette). This also doesn't block non-printable characters such as
-  # backspace.
-  #
-  # There should probably be a better API on the editor to handle this
-  # but the requirements aren't clear yet, so this will have to suffice
-  # for now.
-  #
-  # Returns nothing.
-  registerInsertIntercept: ->
-    @editorView.preempt 'textInput', (e) =>
-      return if $(e.currentTarget).hasClass('mini')
-
-      if @mode == 'insert'
-        true
-      else
-        @clearOpStack()
-        false
-
-  # Private: Intercept undo in insert mode.
-  #
-  # Undo in insert mode will blow up the previous transaction, but not
-  # put it into the redo stack anywhere correctly, as it hasn't been
-  # completed. As a workaround, we exit insert mode first and then
-  # bubble the event up
-  registerUndoIntercept: ->
-    @editorView.preempt 'core:undo', (e) =>
-      return true unless @mode == 'insert'
-      @activateCommandMode()
-      return true
-
-  # Private: Reset transactions on input for undo/redo/repeat on several
-  # core and vim-mode events
-  registerInsertTransactionResets: ->
-    events = [ 'core:move-up'
-               'core:move-down'
-               'core:move-right'
-               'core:move-left' ]
-    @editorView.on events.join(' '), =>
-      @resetInputTransactions()
-
-
-  # Private: Watches for any deletes on the current buffer and places it in the
-  # last deleted buffer.
-  #
-  # Returns nothing.
-  registerChangeHandler: (buffer) ->
-    buffer.on 'changed', ({newRange, newText, oldRange, oldText}) =>
-      return unless @setRegister?
-      if newText == ''
-        @setRegister('"', text: oldText, type: Utils.copyType(oldText))
+  destroy: ->
+    @subscriptions.dispose()
+    @deactivateInsertMode()
+    @editorElement.component.setInputEnabled(true)
+    @editorElement.classList.remove("vim-mode")
+    @editorElement.classList.remove("command-mode")
 
   # Private: Creates the plugin's bindings
   #
@@ -126,7 +74,7 @@ class VimState
       'delete-to-last-character-of-line': => [new Operators.Delete(@editor, @), new Motions.MoveToLastCharacterOfLine(@editor, @)]
       'toggle-case': => new Operators.ToggleCase(@editor, @)
       'yank': => @linewiseAliasedOperator(Operators.Yank)
-      'yank-line': => [new Operators.Yank(@editor, @), new Motions.MoveToLine(@editor, @)]
+      'yank-line': => [new Operators.Yank(@editor, @), new Motions.MoveToRelativeLine(@editor, @)]
       'put-before': => new Operators.Put(@editor, @, location: 'before')
       'put-after': => new Operators.Put(@editor, @, location: 'after')
       'join': => new Operators.Join(@editor, @)
@@ -152,11 +100,19 @@ class VimState
       'move-to-first-character-of-line-down': => new Motions.MoveToFirstCharacterOfLineDown(@editor, @)
       'move-to-start-of-file': => new Motions.MoveToStartOfFile(@editor, @)
       'move-to-line': => new Motions.MoveToLine(@editor, @)
-      'move-to-top-of-screen': => new Motions.MoveToTopOfScreen(@editor, @, @editorView)
-      'move-to-bottom-of-screen': => new Motions.MoveToBottomOfScreen(@editor, @, @editorView)
-      'move-to-middle-of-screen': => new Motions.MoveToMiddleOfScreen(@editor, @, @editorView)
-      'scroll-down': => new Scroll.ScrollDown(@editorView, @editor)
-      'scroll-up': => new Scroll.ScrollUp(@editorView, @editor)
+      'move-to-top-of-screen': => new Motions.MoveToTopOfScreen(@editor, @)
+      'move-to-bottom-of-screen': => new Motions.MoveToBottomOfScreen(@editor, @)
+      'move-to-middle-of-screen': => new Motions.MoveToMiddleOfScreen(@editor, @)
+      'scroll-down': => new Scroll.ScrollDown(@editor)
+      'scroll-up': => new Scroll.ScrollUp(@editor)
+      'scroll-cursor-to-top': => new Scroll.ScrollCursorToTop(@editor)
+      'scroll-cursor-to-top-leave': => new Scroll.ScrollCursorToTop(@editor, {leaveCursor: true})
+      'scroll-cursor-to-middle': => new Scroll.ScrollCursorToMiddle(@editor)
+      'scroll-cursor-to-middle-leave': => new Scroll.ScrollCursorToMiddle(@editor, {leaveCursor: true})
+      'scroll-cursor-to-bottom': => new Scroll.ScrollCursorToBottom(@editor)
+      'scroll-cursor-to-bottom-leave': => new Scroll.ScrollCursorToBottom(@editor, {leaveCursor: true})
+      'scroll-half-screen-up': => new Scroll.ScrollHalfScreenUp(@editor)
+      'scroll-half-screen-down': => new Scroll.ScrollHalfScreenDown(@editor)
       'select-inside-word': => new TextObjects.SelectInsideWord(@editor)
       'select-inside-double-quotes': => new TextObjects.SelectInsideQuotes(@editor, '"', false)
       'select-inside-single-quotes': => new TextObjects.SelectInsideQuotes(@editor, '\'', false)
@@ -182,21 +138,21 @@ class VimState
       'focus-pane-view-above': => new Panes.FocusPaneViewAbove()
       'focus-pane-view-below': => new Panes.FocusPaneViewBelow()
       'focus-previous-pane-view': => new Panes.FocusPreviousPaneView()
-      'move-to-mark': (e) => new Motions.MoveToMark(@editorView, @)
-      'move-to-mark-literal': (e) => new Motions.MoveToMark(@editorView, @, false)
-      'mark': (e) => new Operators.Mark(@editorView, @)
-      'find': (e) => new Motions.Find(@editorView, @)
-      'find-backwards': (e) => new Motions.Find(@editorView, @).reverse()
-      'till': (e) => new Motions.Till(@editorView, @)
-      'till-backwards': (e) => new Motions.Till(@editorView, @).reverse()
+      'move-to-mark': (e) => new Motions.MoveToMark(@editor, @)
+      'move-to-mark-literal': (e) => new Motions.MoveToMark(@editor, @, false)
+      'mark': (e) => new Operators.Mark(@editor, @)
+      'find': (e) => new Motions.Find(@editor, @)
+      'find-backwards': (e) => new Motions.Find(@editor, @).reverse()
+      'till': (e) => new Motions.Till(@editor, @)
+      'till-backwards': (e) => new Motions.Till(@editor, @).reverse()
       'repeat-find': (e) => @currentFind.repeat() if @currentFind?
       'repeat-find-reverse': (e) => @currentFind.repeat(reverse: true) if @currentFind?
-      'replace': (e) => new Operators.Replace(@editorView, @)
-      'search': (e) => new Motions.Search(@editorView, @)
-      'reverse-search': (e) => (new Motions.Search(@editorView, @)).reversed()
-      'search-current-word': (e) => new Motions.SearchCurrentWord(@editorView, @)
-      'bracket-matching-motion': (e) => new Motions.BracketMatchingMotion(@editorView,@)
-      'reverse-search-current-word': (e) => (new Motions.SearchCurrentWord(@editorView, @)).reversed()
+      'replace': (e) => new Operators.Replace(@editor, @)
+      'search': (e) => new Motions.Search(@editor, @)
+      'reverse-search': (e) => (new Motions.Search(@editor, @)).reversed()
+      'search-current-word': (e) => new Motions.SearchCurrentWord(@editor, @)
+      'bracket-matching-motion': (e) => new Motions.BracketMatchingMotion(@editor,@)
+      'reverse-search-current-word': (e) => (new Motions.SearchCurrentWord(@editor, @)).reversed()
 
   # Private: Register multiple command handlers via an {Object} that maps
   # command names to command handler functions.
@@ -206,7 +162,7 @@ class VimState
   registerCommands: (commands) ->
     for commandName, fn of commands
       do (fn) =>
-        @editorView.command "vim-mode:#{commandName}.vim-mode", fn
+        @subscriptions.add(atom.commands.add(@editorElement, "vim-mode:#{commandName}", fn))
 
   # Private: Register multiple Operators via an {Object} that
   # maps command names to functions that return operations to push.
@@ -234,7 +190,7 @@ class VimState
       # if we have started an operation that responds to canComposeWith check if it can compose
       # with the operation we're going to push onto the stack
       if (topOp = @topOperation())? and topOp.canComposeWith? and not topOp.canComposeWith(operation)
-        @editorView.trigger 'vim-mode:compose-failure'
+        @emitter.emit('failed-to-compose')
         @resetCommandMode()
         break
 
@@ -246,6 +202,9 @@ class VimState
         @opStack.push(new Motions.CurrentSelection(@editor, @))
 
       @processOpStack()
+
+  onDidFailToCompose: (fn) ->
+    @emitter.on('failed-to-compose', fn)
 
   # Private: Removes all operations from the stack.
   #
@@ -271,7 +230,10 @@ class VimState
         @topOperation().compose(poppedOperation)
         @processOpStack()
       catch e
-        ((e instanceof Operators.OperatorError) or (e instanceof Motions.MotionError)) and @resetCommandMode() or throw e
+        if (e instanceof Operators.OperatorError) or (e instanceof Motions.MotionError)
+          @resetCommandMode()
+        else
+          throw e
     else
       @history.unshift(poppedOperation) if poppedOperation.isRecordable()
       poppedOperation.execute()
@@ -302,7 +264,7 @@ class VimState
       type = Utils.copyType(text)
       {text, type}
     else
-      atom.workspace.vimState.registers[name]
+      @globalVimState.registers[name]
 
   # Private: Fetches the value of a given mark.
   #
@@ -329,7 +291,7 @@ class VimState
     else if name == '_'
       # Blackhole register, nothing to do
     else
-      atom.workspace.vimState.registers[name] = value
+      @globalVimState.registers[name] = value
 
   # Private: Sets the value of a given mark.
   #
@@ -349,7 +311,7 @@ class VimState
   #
   # Returns nothing
   pushSearchHistory: (search) ->
-    atom.workspace.vimState.searchHistory.unshift search
+    @globalVimState.searchHistory.unshift search
 
   # Public: Get the search history item at the given index.
   #
@@ -357,12 +319,7 @@ class VimState
   #
   # Returns a search motion
   getSearchHistoryItem: (index) ->
-    atom.workspace.vimState.searchHistory[index]
-
-  resetInputTransactions: ->
-    return unless @mode == 'insert' && @history[0]?.inputOperator?()
-    @deactivateInsertMode()
-    @activateInsertMode()
+    @globalVimState.searchHistory[index]
 
   ##############################################################################
   # Mode Switching
@@ -376,8 +333,8 @@ class VimState
     @mode = 'command'
     @submode = null
 
-    if @editorView.is(".insert-mode")
-      cursor = @editor.getCursor()
+    if @editorElement.classList.contains("insert-mode")
+      cursor = @editor.getLastCursor()
       cursor.moveLeft() unless cursor.isAtBeginningOfLine()
 
     @changeModeClass('command-mode')
@@ -390,18 +347,22 @@ class VimState
   # Private: Used to enable insert mode.
   #
   # Returns nothing.
-  activateInsertMode: (transactionStarted = false)->
+  activateInsertMode: ->
     @mode = 'insert'
-    @editorView.setInputEnabled?(true)
-    @editor.beginTransaction() unless transactionStarted
+    @editorElement.component.setInputEnabled(true)
+    @setInsertionCheckpoint()
     @submode = null
     @changeModeClass('insert-mode')
     @updateStatusBar()
 
+  setInsertionCheckpoint: ->
+    @insertionCheckpoint = @editor.createCheckpoint() unless @insertionCheckpoint?
+
   deactivateInsertMode: ->
+    @editorElement.component.setInputEnabled(false)
     return unless @mode == 'insert'
-    @editorView.setInputEnabled?(false)
-    @editor.commitTransaction()
+    @editor.groupChangesSinceCheckpoint(@insertionCheckpoint)
+    @insertionCheckpoint = null
     transaction = _.last(@editor.buffer.history.undoStack)
     item = @inputOperator(@history[0])
     if item? and transaction?
@@ -428,7 +389,8 @@ class VimState
     @changeModeClass('visual-mode')
 
     if @submode == 'linewise'
-      @editor.selectLine()
+      @editor.selectLinesContainingCursors()
+      @initialSelectedRange = @editor.getLastSelection().getBufferRange()
 
     @updateStatusBar()
 
@@ -444,14 +406,15 @@ class VimState
   changeModeClass: (targetMode) ->
     for mode in ['command-mode', 'insert-mode', 'visual-mode', 'operator-pending-mode']
       if mode is targetMode
-        @editorView.addClass(mode)
+        @editorElement.classList.add(mode)
       else
-        @editorView.removeClass(mode)
+        @editorElement.classList.remove(mode)
 
   # Private: Resets the command mode back to it's initial state.
   #
   # Returns nothing.
   resetCommandMode: ->
+    @clearOpStack()
     @activateCommandMode()
 
   # Private: A generic way to create a Register prefix based on the event.
@@ -502,7 +465,7 @@ class VimState
   # Returns nothing.
   linewiseAliasedOperator: (constructor) ->
     if @isOperatorPending(constructor)
-      new Motions.MoveToLine(@editor, @)
+      new Motions.MoveToRelativeLine(@editor, @)
     else
       new constructor(@editor, @)
 
@@ -520,14 +483,4 @@ class VimState
       @opStack.length > 0
 
   updateStatusBar: ->
-    if !$('#status-bar-vim-mode').length
-      atom.workspaceView.statusBar?.prependLeft("<div id='status-bar-vim-mode' class='inline-block'>Command</div>")
-      @updateStatusBar()
-
-    @removeStatusBarClass()
-    switch @mode
-      when 'insert'  then $('#status-bar-vim-mode').addClass('status-bar-vim-mode-insert').html("Insert")
-      when 'command' then $('#status-bar-vim-mode').addClass('status-bar-vim-mode-command').html("Command")
-      when 'visual'  then $('#status-bar-vim-mode').addClass('status-bar-vim-mode-visual').html("Visual")
-
-  removeStatusBarClass: -> $('#status-bar-vim-mode').removeClass('status-bar-vim-mode-insert status-bar-vim-mode-command status-bar-vim-mode-visual')
+    @statusBarManager.update(@mode)

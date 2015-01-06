@@ -1,24 +1,36 @@
+{Disposable, CompositeDisposable} = require 'event-kit'
+StatusBarManager = require './status-bar-manager'
+GlobalVimState = require './global-vim-state'
 VimState = require './vim-state'
 
 module.exports =
-  configDefaults:
-    'commandModeInputViewFontSize': 11
-    'startInInsertMode': false
-
-  _initializeWorkspaceState: ->
-    atom.workspace.vimState ||= {}
-    atom.workspace.vimState.registers ||= {}
-    atom.workspace.vimState.searchHistory ||= []
+  config:
+    startInInsertMode:
+      type: 'boolean'
+      default: false
+    useSmartcaseForSearch:
+      type: 'boolean'
+      default: false
 
   activate: (state) ->
-    @_initializeWorkspaceState()
-    atom.workspaceView.eachEditorView (editorView) =>
-      return unless editorView.attached
-      return if editorView.mini
+    @disposables = new CompositeDisposable
+    globalVimState = new GlobalVimState
+    statusBarManager = new StatusBarManager
 
-      editorView.addClass('vim-mode')
-      editorView.vimState = new VimState(editorView)
+    @disposables.add statusBarManager.initialize()
+    @disposables.add atom.workspace.observeTextEditors (editor) =>
+      return if editor.mini
+
+      element = atom.views.getView(editor)
+
+      vimState = new VimState(
+        element,
+        statusBarManager,
+        globalVimState
+      )
+
+      @disposables.add new Disposable =>
+        vimState.destroy()
 
   deactivate: ->
-    atom.workspaceView?.eachEditorView (editorView) =>
-      editorView.off('.vim-mode')
+    @disposables.dispose()

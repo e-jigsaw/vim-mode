@@ -1,22 +1,21 @@
 helpers = require './spec-helper'
 
 describe "TextObjects", ->
-  [editor, editorView, vimState] = []
+  [editor, editorElement, vimState] = []
 
   beforeEach ->
     vimMode = atom.packages.loadPackage('vim-mode')
     vimMode.activateResources()
 
-    helpers.cacheEditor editorView, (view) ->
-      editorView = view
-      editor = editorView.editor
-
-      vimState = editorView.vimState
+    helpers.getEditorElement (element) ->
+      editorElement = element
+      editor = editorElement.getModel()
+      vimState = editorElement.vimState
       vimState.activateCommandMode()
       vimState.resetCommandMode()
 
   keydown = (key, options={}) ->
-    options.element ?= editorView[0]
+    options.element ?= editorElement
     helpers.keydown(key, options)
 
   commandModeInputKeydown = (key, opts = {}) ->
@@ -37,8 +36,8 @@ describe "TextObjects", ->
       expect(editor.getText()).toBe "12345  ABCDE"
       expect(editor.getCursorScreenPosition()).toEqual [0, 6]
       expect(vimState.getRegister('"').text).toBe "abcde"
-      expect(editorView).not.toHaveClass('operator-pending-mode')
-      expect(editorView).toHaveClass('command-mode')
+      expect(editorElement.classList.contains('operator-pending-mode')).toBe(false)
+      expect(editorElement.classList.contains('command-mode')).toBe(true)
 
     it "selects inside the current word in visual mode", ->
       keydown('v')
@@ -58,8 +57,8 @@ describe "TextObjects", ->
       keydown('(')
       expect(editor.getText()).toBe "()"
       expect(editor.getCursorScreenPosition()).toEqual [0, 1]
-      expect(editorView).not.toHaveClass('operator-pending-mode')
-      expect(editorView).toHaveClass('command-mode')
+      expect(editorElement.classList.contains('operator-pending-mode')).toBe(false)
+      expect(editorElement.classList.contains('command-mode')).toBe(true)
 
     it "applies operators inside the current word in operator-pending mode (second test)", ->
       editor.setCursorScreenPosition([0, 29])
@@ -68,8 +67,8 @@ describe "TextObjects", ->
       keydown('(')
       expect(editor.getText()).toBe "( something in here and in () )"
       expect(editor.getCursorScreenPosition()).toEqual [0, 28]
-      expect(editorView).not.toHaveClass('operator-pending-mode')
-      expect(editorView).toHaveClass('command-mode')
+      expect(editorElement.classList.contains('operator-pending-mode')).toBe(false)
+      expect(editorElement.classList.contains('command-mode')).toBe(true)
 
   describe "the 'i{' text object", ->
     beforeEach ->
@@ -82,8 +81,8 @@ describe "TextObjects", ->
       keydown('{')
       expect(editor.getText()).toBe "{}"
       expect(editor.getCursorScreenPosition()).toEqual [0, 1]
-      expect(editorView).not.toHaveClass('operator-pending-mode')
-      expect(editorView).toHaveClass('command-mode')
+      expect(editorElement.classList.contains('operator-pending-mode')).toBe(false)
+      expect(editorElement.classList.contains('command-mode')).toBe(true)
 
     it "applies operators inside the current word in operator-pending mode (second test)", ->
       editor.setCursorScreenPosition([0, 29])
@@ -92,8 +91,8 @@ describe "TextObjects", ->
       keydown('{')
       expect(editor.getText()).toBe "{ something in here and in {} }"
       expect(editor.getCursorScreenPosition()).toEqual [0, 28]
-      expect(editorView).not.toHaveClass('operator-pending-mode')
-      expect(editorView).toHaveClass('command-mode')
+      expect(editorElement.classList.contains('operator-pending-mode')).toBe(false)
+      expect(editorElement.classList.contains('command-mode')).toBe(true)
 
 
   describe "the 'i<' text object", ->
@@ -107,8 +106,8 @@ describe "TextObjects", ->
       keydown('<')
       expect(editor.getText()).toBe "<>"
       expect(editor.getCursorScreenPosition()).toEqual [0, 1]
-      expect(editorView).not.toHaveClass('operator-pending-mode')
-      expect(editorView).toHaveClass('command-mode')
+      expect(editorElement.classList.contains('operator-pending-mode')).toBe(false)
+      expect(editorElement.classList.contains('command-mode')).toBe(true)
 
     it "applies operators inside the current word in operator-pending mode (second test)", ->
       editor.setCursorScreenPosition([0, 29])
@@ -117,8 +116,8 @@ describe "TextObjects", ->
       keydown('<')
       expect(editor.getText()).toBe "< something in here and in <> >"
       expect(editor.getCursorScreenPosition()).toEqual [0, 28]
-      expect(editorView).not.toHaveClass('operator-pending-mode')
-      expect(editorView).toHaveClass('command-mode')
+      expect(editorElement.classList.contains('operator-pending-mode')).toBe(false)
+      expect(editorElement.classList.contains('command-mode')).toBe(true)
 
   describe "the 'i[' text object", ->
     beforeEach ->
@@ -131,8 +130,8 @@ describe "TextObjects", ->
       keydown('[')
       expect(editor.getText()).toBe "[]"
       expect(editor.getCursorScreenPosition()).toEqual [0, 1]
-      expect(editorView).not.toHaveClass('operator-pending-mode')
-      expect(editorView).toHaveClass('command-mode')
+      expect(editorElement.classList.contains('operator-pending-mode')).toBe(false)
+      expect(editorElement.classList.contains('command-mode')).toBe(true)
 
     it "applies operators inside the current word in operator-pending mode (second test)", ->
       editor.setCursorScreenPosition([0, 29])
@@ -141,56 +140,75 @@ describe "TextObjects", ->
       keydown('[')
       expect(editor.getText()).toBe "[ something in here and in [] ]"
       expect(editor.getCursorScreenPosition()).toEqual [0, 28]
-      expect(editorView).not.toHaveClass('operator-pending-mode')
-      expect(editorView).toHaveClass('command-mode')
+      expect(editorElement.classList.contains('operator-pending-mode')).toBe(false)
+      expect(editorElement.classList.contains('command-mode')).toBe(true)
 
   describe "the 'i\'' text object", ->
     beforeEach ->
-      editor.setText("' something in here and in 'here' '")
+      editor.setText("' something in here and in 'here' ' and over here")
       editor.setCursorScreenPosition([0, 9])
 
-    it "applies operators inside the current word in operator-pending mode", ->
+    it "applies operators inside the current string in operator-pending mode", ->
       keydown('d')
       keydown('i')
       keydown('\'')
-      expect(editor.getText()).toBe "''here' '"
+      expect(editor.getText()).toBe "''here' ' and over here"
       expect(editor.getCursorScreenPosition()).toEqual [0, 1]
-      expect(editorView).not.toHaveClass('operator-pending-mode')
-      expect(editorView).toHaveClass('command-mode')
+      expect(editorElement.classList.contains('operator-pending-mode')).toBe(false)
+      expect(editorElement.classList.contains('command-mode')).toBe(true)
 
-    it "applies operators inside the current word in operator-pending mode (second test)", ->
+    it "applies operators inside the next string in operator-pending mode (if not in a string)", ->
       editor.setCursorScreenPosition([0, 29])
       keydown('d')
       keydown('i')
       keydown('\'')
-      expect(editor.getText()).toBe "' something in here and in '' '"
-      expect(editor.getCursorScreenPosition()).toEqual [0, 28]
-      expect(editorView).not.toHaveClass('operator-pending-mode')
-      expect(editorView).toHaveClass('command-mode')
+      expect(editor.getText()).toBe "' something in here and in 'here'' and over here"
+      expect(editor.getCursorScreenPosition()).toEqual [0, 33]
+      expect(editorElement.classList.contains('operator-pending-mode')).toBe(false)
+      expect(editorElement.classList.contains('command-mode')).toBe(true)
+
+    it "makes no change if past the last string on a line", ->
+      editor.setCursorScreenPosition([0, 39])
+      keydown('d')
+      keydown('i')
+      keydown('\'')
+      expect(editor.getText()).toBe "' something in here and in 'here' ' and over here"
+      expect(editor.getCursorScreenPosition()).toEqual [0, 39]
+      expect(editorElement.classList.contains('operator-pending-mode')).toBe(false)
+      expect(editorElement.classList.contains('command-mode')).toBe(true)
 
   describe "the 'i\"' text object", ->
     beforeEach ->
-      editor.setText("\" something in here and in \"here\" \"")
+      editor.setText("\" something in here and in \"here\" \" and over here")
       editor.setCursorScreenPosition([0, 9])
 
-    it "applies operators inside the current word in operator-pending mode", ->
+    it "applies operators inside the current string in operator-pending mode", ->
       keydown('d')
       keydown('i')
-      keydown('""')
-      expect(editor.getText()).toBe '""here" "'
+      keydown('"')
+      expect(editor.getText()).toBe "\"\"here\" \" and over here"
       expect(editor.getCursorScreenPosition()).toEqual [0, 1]
-      expect(editorView).not.toHaveClass('operator-pending-mode')
-      expect(editorView).toHaveClass('command-mode')
+      expect(editorElement.classList.contains('operator-pending-mode')).toBe(false)
+      expect(editorElement.classList.contains('command-mode')).toBe(true)
 
-    it "applies operators inside the current word in operator-pending mode (second test)", ->
+    it "applies operators inside the next string in operator-pending mode (if not in a string)", ->
       editor.setCursorScreenPosition([0, 29])
       keydown('d')
       keydown('i')
       keydown('"')
-      expect(editor.getText()).toBe "\" something in here and in \"\" \""
-      expect(editor.getCursorScreenPosition()).toEqual [0, 28]
-      expect(editorView).not.toHaveClass('operator-pending-mode')
-      expect(editorView).toHaveClass('command-mode')
+      expect(editor.getText()).toBe "\" something in here and in \"here\"\" and over here"
+      expect(editor.getCursorScreenPosition()).toEqual [0, 33]
+      expect(editorElement.classList.contains('operator-pending-mode')).toBe(false)
+      expect(editorElement.classList.contains('command-mode')).toBe(true)
+
+    it "makes no change if past the last string on a line", ->
+      editor.setCursorScreenPosition([0, 39])
+      keydown('d')
+      keydown('i')
+      keydown('"')
+      expect(editor.getText()).toBe "\" something in here and in \"here\" \" and over here"
+      expect(editor.getCursorScreenPosition()).toEqual [0, 39]
+      expect(editorElement.classList.contains('operator-pending-mode')).toBe(false)
 
   describe "the 'aw' text object", ->
     beforeEach ->
@@ -205,8 +223,8 @@ describe "TextObjects", ->
       expect(editor.getText()).toBe "12345 ABCDE"
       expect(editor.getCursorScreenPosition()).toEqual [0, 6]
       expect(vimState.getRegister('"').text).toBe "abcde "
-      expect(editorView).not.toHaveClass('operator-pending-mode')
-      expect(editorView).toHaveClass('command-mode')
+      expect(editorElement.classList.contains('operator-pending-mode')).toBe(false)
+      expect(editorElement.classList.contains('command-mode')).toBe(true)
 
     it "selects from the start of the current word to the start of the next word in visual mode", ->
       keydown('v')
@@ -226,8 +244,8 @@ describe "TextObjects", ->
       keydown('(')
       expect(editor.getText()).toBe ""
       expect(editor.getCursorScreenPosition()).toEqual [0, 0]
-      expect(editorView).not.toHaveClass('operator-pending-mode')
-      expect(editorView).toHaveClass('command-mode')
+      expect(editorElement.classList.contains('operator-pending-mode')).toBe(false)
+      expect(editorElement.classList.contains('command-mode')).toBe(true)
 
     it "applies operators around the current parentheses in operator-pending mode (second test)", ->
       editor.setCursorScreenPosition([0, 29])
@@ -236,8 +254,8 @@ describe "TextObjects", ->
       keydown('(')
       expect(editor.getText()).toBe "( something in here and in  )"
       expect(editor.getCursorScreenPosition()).toEqual [0, 27]
-      expect(editorView).not.toHaveClass('operator-pending-mode')
-      expect(editorView).toHaveClass('command-mode')
+      expect(editorElement.classList.contains('operator-pending-mode')).toBe(false)
+      expect(editorElement.classList.contains('command-mode')).toBe(true)
 
   describe "the 'a{' text object", ->
     beforeEach ->
@@ -250,8 +268,8 @@ describe "TextObjects", ->
       keydown('{')
       expect(editor.getText()).toBe ""
       expect(editor.getCursorScreenPosition()).toEqual [0, 0]
-      expect(editorView).not.toHaveClass('operator-pending-mode')
-      expect(editorView).toHaveClass('command-mode')
+      expect(editorElement.classList.contains('operator-pending-mode')).toBe(false)
+      expect(editorElement.classList.contains('command-mode')).toBe(true)
 
     it "applies operators around the current curly brackets in operator-pending mode (second test)", ->
       editor.setCursorScreenPosition([0, 29])
@@ -260,8 +278,8 @@ describe "TextObjects", ->
       keydown('{')
       expect(editor.getText()).toBe "{ something in here and in  }"
       expect(editor.getCursorScreenPosition()).toEqual [0, 27]
-      expect(editorView).not.toHaveClass('operator-pending-mode')
-      expect(editorView).toHaveClass('command-mode')
+      expect(editorElement.classList.contains('operator-pending-mode')).toBe(false)
+      expect(editorElement.classList.contains('command-mode')).toBe(true)
 
   describe "the 'a<' text object", ->
     beforeEach ->
@@ -274,8 +292,8 @@ describe "TextObjects", ->
       keydown('<')
       expect(editor.getText()).toBe ""
       expect(editor.getCursorScreenPosition()).toEqual [0, 0]
-      expect(editorView).not.toHaveClass('operator-pending-mode')
-      expect(editorView).toHaveClass('command-mode')
+      expect(editorElement.classList.contains('operator-pending-mode')).toBe(false)
+      expect(editorElement.classList.contains('command-mode')).toBe(true)
 
     it "applies operators around the current angle brackets in operator-pending mode (second test)", ->
       editor.setCursorScreenPosition([0, 29])
@@ -284,8 +302,8 @@ describe "TextObjects", ->
       keydown('<')
       expect(editor.getText()).toBe "< something in here and in  >"
       expect(editor.getCursorScreenPosition()).toEqual [0, 27]
-      expect(editorView).not.toHaveClass('operator-pending-mode')
-      expect(editorView).toHaveClass('command-mode')
+      expect(editorElement.classList.contains('operator-pending-mode')).toBe(false)
+      expect(editorElement.classList.contains('command-mode')).toBe(true)
 
   describe "the 'a[' text object", ->
     beforeEach ->
@@ -298,8 +316,8 @@ describe "TextObjects", ->
       keydown('[')
       expect(editor.getText()).toBe ""
       expect(editor.getCursorScreenPosition()).toEqual [0, 0]
-      expect(editorView).not.toHaveClass('operator-pending-mode')
-      expect(editorView).toHaveClass('command-mode')
+      expect(editorElement.classList.contains('operator-pending-mode')).toBe(false)
+      expect(editorElement.classList.contains('command-mode')).toBe(true)
 
     it "applies operators around the current square brackets in operator-pending mode (second test)", ->
       editor.setCursorScreenPosition([0, 29])
@@ -308,8 +326,8 @@ describe "TextObjects", ->
       keydown('[')
       expect(editor.getText()).toBe "[ something in here and in  ]"
       expect(editor.getCursorScreenPosition()).toEqual [0, 27]
-      expect(editorView).not.toHaveClass('operator-pending-mode')
-      expect(editorView).toHaveClass('command-mode')
+      expect(editorElement.classList.contains('operator-pending-mode')).toBe(false)
+      expect(editorElement.classList.contains('command-mode')).toBe(true)
 
   describe "the 'a\'' text object", ->
     beforeEach ->
@@ -322,18 +340,18 @@ describe "TextObjects", ->
       keydown('\'')
       expect(editor.getText()).toBe "here' '"
       expect(editor.getCursorScreenPosition()).toEqual [0, 0]
-      expect(editorView).not.toHaveClass('operator-pending-mode')
-      expect(editorView).toHaveClass('command-mode')
+      expect(editorElement.classList.contains('operator-pending-mode')).toBe(false)
+      expect(editorElement.classList.contains('command-mode')).toBe(true)
 
     it "applies operators around the current single quotes in operator-pending mode (second test)", ->
       editor.setCursorScreenPosition([0, 29])
       keydown('d')
       keydown('a')
       keydown('\'')
-      expect(editor.getText()).toBe "' something in here and in  '"
-      expect(editor.getCursorScreenPosition()).toEqual [0, 27]
-      expect(editorView).not.toHaveClass('operator-pending-mode')
-      expect(editorView).toHaveClass('command-mode')
+      expect(editor.getText()).toBe "' something in here and in 'here"
+      expect(editor.getCursorScreenPosition()).toEqual [0, 31]
+      expect(editorElement.classList.contains('operator-pending-mode')).toBe(false)
+      expect(editorElement.classList.contains('command-mode')).toBe(true)
 
   describe "the 'a\"' text object", ->
     beforeEach ->
@@ -346,15 +364,15 @@ describe "TextObjects", ->
       keydown('""')
       expect(editor.getText()).toBe 'here" "'
       expect(editor.getCursorScreenPosition()).toEqual [0, 0]
-      expect(editorView).not.toHaveClass('operator-pending-mode')
-      expect(editorView).toHaveClass('command-mode')
+      expect(editorElement.classList.contains('operator-pending-mode')).toBe(false)
+      expect(editorElement.classList.contains('command-mode')).toBe(true)
 
     it "applies operators around the current double quotes in operator-pending mode (second test)", ->
       editor.setCursorScreenPosition([0, 29])
       keydown('d')
       keydown('a')
       keydown('"')
-      expect(editor.getText()).toBe "\" something in here and in  \""
-      expect(editor.getCursorScreenPosition()).toEqual [0, 27]
-      expect(editorView).not.toHaveClass('operator-pending-mode')
-      expect(editorView).toHaveClass('command-mode')
+      expect(editor.getText()).toBe "\" something in here and in \"here"
+      expect(editor.getCursorScreenPosition()).toEqual [0, 31]
+      expect(editorElement.classList.contains('operator-pending-mode')).toBe(false)
+      expect(editorElement.classList.contains('command-mode')).toBe(true)
