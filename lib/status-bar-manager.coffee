@@ -31,7 +31,7 @@ class StatusBarManager
   attach: ->
     statusBar = atom.workspaceView?.statusBar
     if statusBar?
-      statusBar.prependRight(@element)
+      statusBar.prependLeft(@element)
       @disposables.add new Disposable =>
         @element.parentNode?.removeChild(@element)
       true
