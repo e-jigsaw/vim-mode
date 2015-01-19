@@ -25,9 +25,12 @@ class VimState
     @opStack = []
     @history = []
     @marks = {}
-    params = {}
-    params.manager = this;
-    params.id = 0;
+
+    @editor.onDidChangeSelectionRange =>
+      if _.all(@editor.getSelections(), (selection) -> selection.isEmpty())
+        @activateCommandMode() if @mode is 'visual'
+      else
+        @activateVisualMode('characterwise') if @mode is 'command'
 
     @editorElement.classList.add("vim-mode")
     @setupCommandMode()
@@ -54,6 +57,8 @@ class VimState
       'activate-blockwise-visual-mode': => @activateVisualMode('blockwise')
       'reset-command-mode': => @resetCommandMode()
       'repeat-prefix': (e) => @repeatPrefix(e)
+      'reverse-selections': (e) => @reverseSelections(e)
+      'undo': (e) => @undo(e)
 
     @registerOperationCommands
       'activate-insert-mode': => new Operators.Insert(@editor, @)
@@ -210,6 +215,10 @@ class VimState
   clearOpStack: ->
     @opStack = []
 
+  undo: ->
+    @editor.undo()
+    @activateCommandMode()
+
   # Private: Processes the command if the last operation is complete.
   #
   # Returns nothing.
@@ -328,10 +337,7 @@ class VimState
   # Returns nothing.
   activateCommandMode: ->
     @deactivateInsertMode()
-
-    if @mode in ['insert', 'visual']
-      for cursor in @editor.getCursors()
-        cursor.moveLeft() unless cursor.isAtBeginningOfLine()
+    @deactivateVisualMode()
 
     @mode = 'command'
     @submode = null
@@ -358,14 +364,21 @@ class VimState
     @insertionCheckpoint = @editor.createCheckpoint() unless @insertionCheckpoint?
 
   deactivateInsertMode: ->
+    return unless @mode in [null, 'insert']
     @editorElement.component.setInputEnabled(false)
-    return unless @mode == 'insert'
     @editor.groupChangesSinceCheckpoint(@insertionCheckpoint)
     @insertionCheckpoint = null
     transaction = _.last(@editor.buffer.history.undoStack)
     item = @inputOperator(@history[0])
     if item? and transaction?
       item.confirmTransaction(transaction)
+    for cursor in @editor.getCursors()
+      cursor.moveLeft() unless cursor.isAtBeginningOfLine()
+
+  deactivateVisualMode: ->
+    return unless @mode is 'visual'
+    for selection in @editor.getSelections()
+      selection.cursor.moveLeft() unless selection.isEmpty()
 
   # Private: Get the input operator that needs to be told about about the
   # typed undo transaction in a recently completed operation, if there
@@ -374,7 +387,6 @@ class VimState
     return item unless item?
     return item if item.inputOperator?()
     return item.composedObject if item.composedObject?.inputOperator?()
-
 
   # Private: Used to enable visual mode.
   #
@@ -389,7 +401,7 @@ class VimState
 
     if @submode == 'linewise'
       @editor.selectLinesContainingCursors()
-    else
+    else if @editor.getSelectedText() is ''
       @editor.selectRight()
 
     @updateStatusBar()
@@ -443,6 +455,11 @@ class VimState
         e.abortKeyBinding()
       else
         @pushOperations(new Prefixes.Repeat(num))
+
+  reverseSelections: ->
+    for selection in @editor.getSelections()
+      reversed = not selection.isReversed()
+      selection.setBufferRange(selection.getBufferRange(), {reversed})
 
   # Private: Figure out whether or not we are in a repeat sequence or we just
   # want to move to the beginning of the line. If we are within a repeat

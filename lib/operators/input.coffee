@@ -17,8 +17,12 @@ class Insert extends Operator
   execute: ->
     if @typingCompleted
       return unless @typedText? and @typedText.length > 0
-      @undoTransaction =>
-        @editor.getBuffer().insert(@editor.getCursorBufferPosition(), @typedText, true)
+      @editor.transact =>
+        @editor.getBuffer().insert(
+          @editor.getCursorBufferPosition(),
+          @typedText,
+          normalizeLineEndings: true
+        )
     else
       @vimState.activateInsertMode()
       @typingCompleted = true
@@ -77,7 +81,7 @@ class Change extends Insert
     # undo transactions are already handled.
     @vimState.setInsertionCheckpoint() unless @typingCompleted
 
-    if _.contains(@motion.select(count), true)
+    if _.contains(@motion.select(count, excludeWhitespace: true), true)
       @setTextRegister(@register, @editor.getSelectedText())
       if @motion.isLinewise?()
         @editor.insertNewline()
@@ -113,7 +117,8 @@ class SubstituteLine extends Insert
     @vimState.setInsertionCheckpoint() unless @typingCompleted
     @editor.moveToBeginningOfLine()
     _.times count, =>
-      @editor.selectDown()
+      @editor.selectToEndOfLine()
+      @editor.selectRight()
     text = @editor.getLastSelection().getText()
     @setTextRegister(@register, text)
     @editor.delete()
