@@ -31,7 +31,7 @@ class StatusBarManager
   attach: ->
     statusBar = document.querySelector("status-bar")
     if statusBar?
-      tile = statusBar.addLeftTile(item: @element, priority: 20)
+      tile = statusBar.prependLeft(@element)
       @disposables.add new Disposable => tile.destroy()
       true
     else
