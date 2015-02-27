@@ -37,6 +37,12 @@ describe "Motions", ->
           keydown('h')
           expect(editor.getCursorScreenPosition()).toEqual [1, 0]
 
+        it "moves the cursor to the previous line if wrapLeftRightMotion is true", ->
+          atom.config.set('vim-mode.wrapLeftRightMotion', true)
+          keydown('h')
+          keydown('h')
+          expect(editor.getCursorScreenPosition()).toEqual [0, 4]
+
       describe "as a selection", ->
         it "selects the character to the left", ->
           keydown('y')
@@ -102,6 +108,12 @@ describe "Motions", ->
 
         keydown('l')
         expect(editor.getCursorScreenPosition()).toEqual [1, 3]
+
+      it "moves the cursor to the next line if wrapLeftRightMotion is true", ->
+        atom.config.set('vim-mode.wrapLeftRightMotion', true)
+        keydown('l')
+        keydown('l')
+        expect(editor.getCursorScreenPosition()).toEqual [2, 0]
 
       describe "on a blank line", ->
         it "doesn't move the cursor", ->
@@ -422,7 +434,7 @@ describe "Motions", ->
           expect(editor.getCursorScreenPosition()).toEqual [0, 1]
 
   describe "the B keybinding", ->
-    beforeEach -> editor.setText("cde1+- ab \n xyz-123\n\n zip")
+    beforeEach -> editor.setText("cde1+- ab \n\t xyz-123\n\n zip")
 
     describe "as a motion", ->
       beforeEach -> editor.setCursorScreenPosition([4, 1])
@@ -435,7 +447,7 @@ describe "Motions", ->
         expect(editor.getCursorScreenPosition()).toEqual [2, 0]
 
         keydown('B', shift:true)
-        expect(editor.getCursorScreenPosition()).toEqual [1, 1]
+        expect(editor.getCursorScreenPosition()).toEqual [1, 3]
 
         keydown('B', shift:true)
         expect(editor.getCursorScreenPosition()).toEqual [0, 7]
@@ -445,7 +457,7 @@ describe "Motions", ->
 
     describe "as a selection", ->
       it "selects to the beginning of the whole word", ->
-        editor.setCursorScreenPosition([1, 8])
+        editor.setCursorScreenPosition([1, 10])
         keydown('y')
         keydown('B', shift:true)
         expect(vimState.getRegister('"').text).toBe 'xyz-123'
@@ -750,6 +762,51 @@ describe "Motions", ->
           expect(editor.getText()).toBe "1\n6\n"
           # commented out because the column is wrong due to a bug in `j`; re-enable when `j` is fixed
           #expect(editor.getCursorScreenPosition()).toEqual [1, 0]
+
+  describe "the _ keybinding", ->
+    beforeEach ->
+      editor.setText("  abc\n  abc\nabcdefg\n")
+
+    describe "from the middle of a line", ->
+      beforeEach -> editor.setCursorScreenPosition([1, 3])
+
+      describe "as a motion", ->
+        beforeEach -> keydown('_')
+
+        it "moves the cursor to the first character of the current line", ->
+          expect(editor.getCursorScreenPosition()).toEqual [1, 2]
+
+      describe "as a selection", ->
+        beforeEach ->
+          keydown('d')
+          keydown('_')
+
+        it "deletes the current line", ->
+          expect(editor.getText()).toBe "  abc\nabcdefg\n"
+          expect(editor.getCursorScreenPosition()).toEqual [1, 0]
+
+    describe "with a count", ->
+      beforeEach ->
+        editor.setText("1\n2\n3\n4\n5\n6\n")
+        editor.setCursorScreenPosition([1, 0])
+
+      describe "as a motion", ->
+        beforeEach ->
+          keydown('3')
+          keydown('_')
+
+        it "moves the cursor to the first character of that many lines following", ->
+          expect(editor.getCursorScreenPosition()).toEqual [3, 0]
+
+      describe "as a selection", ->
+        beforeEach ->
+          keydown('d')
+          keydown('3')
+          keydown('_')
+
+        it "deletes the current line plus that many following lines", ->
+          expect(editor.getText()).toBe "1\n5\n6\n"
+          expect(editor.getCursorScreenPosition()).toEqual [1, 0]
 
   describe "the enter keybinding", ->
     keydownCodeForEnter = '\r' # 'enter' does not work
@@ -1368,6 +1425,24 @@ describe "Motions", ->
       keydown('f')
       commandModeInputKeydown('a')
       expect(editor.getCursorScreenPosition()).toEqual [0, 0]
+      # a bug was making this behaviour depend on the count
+      keydown('1')
+      keydown('1')
+      keydown('f')
+      commandModeInputKeydown('a')
+      expect(editor.getCursorScreenPosition()).toEqual [0, 0]
+      # and backwards now
+      editor.setCursorScreenPosition([0, 6])
+      keydown('1')
+      keydown('0')
+      keydown('F', shift: true)
+      commandModeInputKeydown('a')
+      expect(editor.getCursorScreenPosition()).toEqual [0, 6]
+      keydown('1')
+      keydown('1')
+      keydown('F', shift: true)
+      commandModeInputKeydown('a')
+      expect(editor.getCursorScreenPosition()).toEqual [0, 6]
 
     it "composes with d", ->
       editor.setCursorScreenPosition([0,3])
@@ -1417,6 +1492,24 @@ describe "Motions", ->
       keydown('t')
       commandModeInputKeydown('a')
       expect(editor.getCursorScreenPosition()).toEqual [0, 0]
+      # a bug was making this behaviour depend on the count
+      keydown('1')
+      keydown('1')
+      keydown('t')
+      commandModeInputKeydown('a')
+      expect(editor.getCursorScreenPosition()).toEqual [0, 0]
+      # and backwards now
+      editor.setCursorScreenPosition([0, 6])
+      keydown('1')
+      keydown('0')
+      keydown('T', shift: true)
+      commandModeInputKeydown('a')
+      expect(editor.getCursorScreenPosition()).toEqual [0, 6]
+      keydown('1')
+      keydown('1')
+      keydown('T', shift: true)
+      commandModeInputKeydown('a')
+      expect(editor.getCursorScreenPosition()).toEqual [0, 6]
 
     it "composes with d", ->
       editor.setCursorScreenPosition([0,3])

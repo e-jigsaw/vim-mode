@@ -2,6 +2,7 @@ _ = require 'underscore-plus'
 {Point, Range} = require 'atom'
 {ViewModel} = require '../view-models/view-model'
 Utils = require '../utils'
+settings = require '../settings'
 
 class OperatorError
   constructor: (@message) ->
@@ -74,7 +75,7 @@ class OperatorWithInput extends Operator
 # It deletes everything selected by the following motion.
 #
 class Delete extends Operator
-  register: '"'
+  register: null
   allowEOL: null
 
   # allowEOL - Determines whether the cursor should be allowed to rest on the
@@ -83,6 +84,7 @@ class Delete extends Operator
     @complete = false
     @selectOptions ?= {}
     @selectOptions.requireEOL ?= true
+    @register = settings.defaultRegister()
 
   # Public: Deletes the text selected by the given motion.
   #
@@ -120,26 +122,23 @@ class ToggleCase extends Operator
             lower
         ).join('')
     else
-      pos = @editor.getCursorBufferPosition()
-      lastCharIndex = @editor.lineTextForBufferRow(pos.row).length - 1
-      count = Math.min count, @editor.lineTextForBufferRow(pos.row).length - pos.column
-
-      # Do nothing on an empty line
-      return if @editor.getBuffer().isRowBlank(pos.row)
-
       @editor.transact =>
-        _.times count, =>
-          point = @editor.getCursorBufferPosition()
-          range = Range.fromPointWithDelta(point, 0, 1)
-          char = @editor.getTextInBufferRange(range)
+        for cursor in @editor.getCursors()
+          point = cursor.getBufferPosition()
+          lineLength = @editor.lineTextForBufferRow(point.row).length
+          cursorCount = Math.min(count, lineLength - point.column)
 
-          if char is char.toLowerCase()
-            @editor.setTextInBufferRange(range, char.toUpperCase())
-          else
-            @editor.setTextInBufferRange(range, char.toLowerCase())
+          _.times cursorCount, =>
+            point = cursor.getBufferPosition()
+            range = Range.fromPointWithDelta(point, 0, 1)
+            char = @editor.getTextInBufferRange(range)
 
-          unless point.column >= lastCharIndex
-            @editor.moveRight()
+            if char is char.toLowerCase()
+              @editor.setTextInBufferRange(range, char.toUpperCase())
+            else
+              @editor.setTextInBufferRange(range, char.toLowerCase())
+
+            cursor.moveRight() unless point.column >= lineLength - 1
 
     @vimState.activateCommandMode()
 
@@ -147,7 +146,11 @@ class ToggleCase extends Operator
 # It copies everything selected by the following motion.
 #
 class Yank extends Operator
-  register: '"'
+  register: null
+
+  constructor: (@editor, @vimState, {@allowEOL, @selectOptions}={}) ->
+    @register = settings.defaultRegister()
+
   # Public: Copies the text selected by the given motion.
   #
   # count - The number of times to execute.

@@ -561,6 +561,13 @@ describe "Operators", ->
       it "leaves the cursor at the starting position", ->
         expect(editor.getCursorScreenPosition()).toEqual [0, 4]
 
+    describe "when useClipboardAsDefaultRegister enabled", ->
+      it "writes to clipboard", ->
+        atom.config.set 'vim-mode.useClipboardAsDefaultRegister', true
+        keydown('y')
+        keydown('y')
+        expect(atom.clipboard.read()).toBe '012 345\n'
+
     describe "when followed with a repeated y", ->
       beforeEach ->
         keydown('y')
@@ -734,6 +741,7 @@ describe "Operators", ->
         editor.setCursorScreenPosition [0, 0]
         vimState.setRegister('"', text: '345')
         vimState.setRegister('a', text: 'a')
+        atom.clipboard.write "clip"
 
       describe "from the default register", ->
         beforeEach -> keydown('p')
@@ -741,6 +749,12 @@ describe "Operators", ->
         it "inserts the contents", ->
           expect(editor.getText()).toBe "034512\n"
           expect(editor.getCursorScreenPosition()).toEqual [0, 3]
+
+      describe "when useClipboardAsDefaultRegister enabled", ->
+        it "inserts contents from clipboard", ->
+          atom.config.set 'vim-mode.useClipboardAsDefaultRegister', true
+          keydown('p')
+          expect(editor.getText()).toBe "0clip12\n"
 
       describe "from a specified register", ->
         beforeEach ->
@@ -1236,34 +1250,36 @@ describe "Operators", ->
 
   describe 'the ~ keybinding', ->
     beforeEach ->
-      editor.setText('aBc')
+      editor.setText('aBc\nXyZ')
       editor.setCursorBufferPosition([0, 0])
+      editor.addCursorAtBufferPosition([1, 0])
 
     it 'toggles the case and moves right', ->
       keydown('~')
-      expect(editor.getText()).toBe 'ABc'
-      expect(editor.getCursorScreenPosition()).toEqual [0, 1]
+      expect(editor.getText()).toBe 'ABc\nxyZ'
+      expect(editor.getCursorScreenPositions()).toEqual [[0, 1], [1, 1]]
 
       keydown('~')
-      expect(editor.getText()).toBe 'Abc'
-      expect(editor.getCursorScreenPosition()).toEqual [0, 2]
+      expect(editor.getText()).toBe 'Abc\nxYZ'
+      expect(editor.getCursorScreenPositions()).toEqual [[0, 2], [1, 2]]
 
       keydown('~')
-      expect(editor.getText()).toBe 'AbC'
-      expect(editor.getCursorScreenPosition()).toEqual [0, 2]
+      expect(editor.getText()).toBe 'AbC\nxYz'
+      expect(editor.getCursorScreenPositions()).toEqual [[0, 2], [1, 2]]
 
-    it 'can be repeated', ->
+    it 'takes a count', ->
       keydown('4')
       keydown('~')
 
-      expect(editor.getText()).toBe 'AbC'
-      expect(editor.getCursorScreenPosition()).toEqual [0, 2]
+      expect(editor.getText()).toBe 'AbC\nxYz'
+      expect(editor.getCursorScreenPositions()).toEqual [[0, 2], [1, 2]]
 
     describe "in visual mode", ->
       it "toggles the case of the selected text", ->
+        editor.setCursorBufferPosition([0, 0])
         keydown("V", shift: true)
         keydown("~")
-        expect(editor.getText()).toBe 'AbC'
+        expect(editor.getText()).toBe 'AbC\nXyZ'
 
   describe "the i keybinding", ->
     beforeEach ->
