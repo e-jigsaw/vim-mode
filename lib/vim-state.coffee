@@ -27,7 +27,7 @@ class VimState
     @history = []
     @marks = {}
 
-    @editor.onDidChangeSelectionRange =>
+    @subscriptions.add @editor.onDidChangeSelectionRange =>
       if _.all(@editor.getSelections(), (selection) -> selection.isEmpty())
         @activateCommandMode() if @mode is 'visual'
       else
@@ -66,8 +66,8 @@ class VimState
       'substitute': => new Operators.Substitute(@editor, @)
       'substitute-line': => new Operators.SubstituteLine(@editor, @)
       'insert-after': => new Operators.InsertAfter(@editor, @)
-      'insert-after-end-of-line': => [new Motions.MoveToLastCharacterOfLine(@editor, @), new Operators.InsertAfter(@editor, @)]
-      'insert-at-beginning-of-line': => [new Motions.MoveToFirstCharacterOfLine(@editor, @), new Operators.Insert(@editor, @)]
+      'insert-after-end-of-line': => new Operators.InsertAfterEndOfLine(@editor, @)
+      'insert-at-beginning-of-line': => new Operators.InsertAtBeginningOfLine(@editor, @)
       'insert-above-with-newline': => new Operators.InsertAboveWithNewline(@editor, @)
       'insert-below-with-newline': => new Operators.InsertBelowWithNewline(@editor, @)
       'delete': => @linewiseAliasedOperator(Operators.Delete)
@@ -77,6 +77,9 @@ class VimState
       'delete-left': => [new Operators.Delete(@editor, @), new Motions.MoveLeft(@editor, @)]
       'delete-to-last-character-of-line': => [new Operators.Delete(@editor, @), new Motions.MoveToLastCharacterOfLine(@editor, @)]
       'toggle-case': => new Operators.ToggleCase(@editor, @)
+      'upper-case': => new Operators.UpperCase(@editor, @)
+      'lower-case': => new Operators.LowerCase(@editor, @)
+      'toggle-case-now': => new Operators.ToggleCase(@editor, @, complete: true)
       'yank': => @linewiseAliasedOperator(Operators.Yank)
       'yank-line': => [new Operators.Yank(@editor, @), new Motions.MoveToRelativeLine(@editor, @)]
       'put-before': => new Operators.Put(@editor, @, location: 'before')
@@ -124,6 +127,7 @@ class VimState
       'select-inside-back-ticks': => new TextObjects.SelectInsideQuotes(@editor, '`', false)
       'select-inside-curly-brackets': => new TextObjects.SelectInsideBrackets(@editor, '{', '}', false)
       'select-inside-angle-brackets': => new TextObjects.SelectInsideBrackets(@editor, '<', '>', false)
+      'select-inside-tags': => new TextObjects.SelectInsideBrackets(@editor, '>', '<', false)
       'select-inside-square-brackets': => new TextObjects.SelectInsideBrackets(@editor, '[', ']', false)
       'select-inside-parentheses': => new TextObjects.SelectInsideBrackets(@editor, '(', ')', false)
       'select-a-word': => new TextObjects.SelectAWord(@editor)
@@ -503,4 +507,4 @@ class VimState
       @opStack.length > 0
 
   updateStatusBar: ->
-    @statusBarManager.update(@mode)
+    @statusBarManager.update(@mode, @submode)
