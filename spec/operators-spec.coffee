@@ -498,16 +498,16 @@ describe "Operators", ->
           editor.setCursorScreenPosition([1,0])
           keydown('c')
           keydown('G', shift: true)
-          keydown('escape');
-          expect(editor.getText()).toBe("12345\n\n");
+          keydown('escape')
+          expect(editor.getText()).toBe("12345\n\n")
 
       describe "on the middle of the second line", ->
         it "deletes the bottom two lines", ->
           editor.setCursorScreenPosition([1,2])
           keydown('c')
           keydown('G', shift: true)
-          keydown('escape');
-          expect(editor.getText()).toBe("12345\n\n");
+          keydown('escape')
+          expect(editor.getText()).toBe("12345\n\n")
 
     describe "when followed by a goto line G", ->
       beforeEach ->
@@ -519,7 +519,7 @@ describe "Operators", ->
           keydown('c')
           keydown('2')
           keydown('G', shift: true)
-          keydown('escape');
+          keydown('escape')
           expect(editor.getText()).toBe("12345\n\nABCDE")
 
       describe "on the middle of the second line", ->
@@ -528,7 +528,7 @@ describe "Operators", ->
           keydown('c')
           keydown('2')
           keydown('G', shift: true)
-          keydown('escape');
+          keydown('escape')
           expect(editor.getText()).toBe("12345\n\nABCDE")
 
   describe "the C keybinding", ->
@@ -620,6 +620,12 @@ describe "Operators", ->
 
       it "leaves the cursor at the starting position", ->
         expect(editor.getCursorScreenPosition()).toEqual [0, 4]
+
+      it "does not yank when motion fails", ->
+        keydown('y')
+        keydown('t')
+        commandModeInputKeydown('x')
+        expect(vimState.getRegister('"').text).toBe '345'
 
     describe "with a text object", ->
       it "moves the cursor to the beginning of the text object", ->
@@ -1243,6 +1249,13 @@ describe "Operators", ->
       keydown('r')
       commandModeInputKeydown('x')
       expect(editor.getText()).toBe 'x2\nx4\n\n'
+
+    it "does nothing when cancelled", ->
+      keydown('r')
+      expect(editorElement.classList.contains('operator-pending-mode')).toBe(true)
+      keydown('escape')
+      expect(editor.getText()).toBe '12\n34\n\n'
+      expect(editorElement.classList.contains('command-mode')).toBe(true)
 
     it "replaces a single character with a line break", ->
       keydown('r')

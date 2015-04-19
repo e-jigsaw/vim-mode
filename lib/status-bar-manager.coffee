@@ -1,13 +1,13 @@
 {Disposable, CompositeDisposable} = require 'event-kit'
 
 ContentsByMode =
-  'insert':               ["status-bar-vim-mode-insert inline-block",  "Insert"]
-  'insert.replace':       ["status-bar-vim-mode-insert",  "Replace"]
-  'command':              ["status-bar-vim-mode-command inline-block", "Command"]
-  'visual':               ["status-bar-vim-mode-visual inline-block",  "Visual"]
-  'visual.characterwise': ["status-bar-vim-mode-visual",  "Visual"]
-  'visual.linewise':      ["status-bar-vim-mode-visual",  "Visual Line"]
-  'visual.blockwise':     ["status-bar-vim-mode-visual",  "Visual Block"]
+  'insert': ["status-bar-vim-mode-insert inline-block", "Insert"]
+  'insert.replace': ["status-bar-vim-mode-insert inline-block", "Replace"]
+  'command': ["status-bar-vim-mode-command inline-block", "Command"]
+  'visual': ["status-bar-vim-mode-visual inline-block", "Visual"]
+  'visual.characterwise': ["status-bar-vim-mode-visual inline-block", "Visual"]
+  'visual.linewise': ["status-bar-vim-mode-visual inline-block", "Visual Line"]
+  'visual.blockwise': ["status-bar-vim-mode-visual inline-block", "Visual Block"]
 
 module.exports =
 class StatusBarManager

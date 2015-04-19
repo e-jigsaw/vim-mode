@@ -54,7 +54,7 @@ class Operator
         text += '\n'
     else
       type = Utils.copyType(text)
-    @vimState.setRegister(register, {text, type})
+    @vimState.setRegister(register, {text, type}) unless text is ''
 
 # Public: Generic class for an operator that requires extra input
 class OperatorWithInput extends Operator
@@ -245,7 +245,7 @@ class Mark extends OperatorWithInput
   # at the current position
   #
   # Returns nothing.
-  execute: () ->
+  execute: ->
     @vimState.setMark(@input.characters, @editor.getCursorBufferPosition())
     @vimState.activateCommandMode()
 
