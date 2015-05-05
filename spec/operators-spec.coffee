@@ -37,65 +37,179 @@ describe "Operators", ->
 
   describe "the x keybinding", ->
     describe "on a line with content", ->
-      beforeEach ->
-        editor.setText("012345")
-        editor.setCursorScreenPosition([0, 4])
+      describe "without vim-mode.wrapLeftRightMotion", ->
+        beforeEach ->
+          editor.setText("abc\n012345\n\nxyz")
+          editor.setCursorScreenPosition([1, 4])
 
-      it "deletes a character", ->
-        keydown('x')
-        expect(editor.getText()).toBe '01235'
-        expect(editor.getCursorScreenPosition()).toEqual [0, 4]
-        expect(vimState.getRegister('"').text).toBe '4'
+        it "deletes a character", ->
+          keydown('x')
+          expect(editor.getText()).toBe 'abc\n01235\n\nxyz'
+          expect(editor.getCursorScreenPosition()).toEqual [1, 4]
+          expect(vimState.getRegister('"').text).toBe '4'
 
-        keydown('x')
-        expect(editor.getText()).toBe '0123'
-        expect(editor.getCursorScreenPosition()).toEqual [0, 3]
-        expect(vimState.getRegister('"').text).toBe '5'
+          keydown('x')
+          expect(editor.getText()).toBe 'abc\n0123\n\nxyz'
+          expect(editor.getCursorScreenPosition()).toEqual [1, 3]
+          expect(vimState.getRegister('"').text).toBe '5'
 
-        keydown('x')
-        expect(editor.getText()).toBe '012'
-        expect(editor.getCursorScreenPosition()).toEqual [0, 2]
-        expect(vimState.getRegister('"').text).toBe '3'
+          keydown('x')
+          expect(editor.getText()).toBe 'abc\n012\n\nxyz'
+          expect(editor.getCursorScreenPosition()).toEqual [1, 2]
+          expect(vimState.getRegister('"').text).toBe '3'
+
+          keydown('x')
+          expect(editor.getText()).toBe 'abc\n01\n\nxyz'
+          expect(editor.getCursorScreenPosition()).toEqual [1, 1]
+          expect(vimState.getRegister('"').text).toBe '2'
+
+          keydown('x')
+          expect(editor.getText()).toBe 'abc\n0\n\nxyz'
+          expect(editor.getCursorScreenPosition()).toEqual [1, 0]
+          expect(vimState.getRegister('"').text).toBe '1'
+
+          keydown('x')
+          expect(editor.getText()).toBe 'abc\n\n\nxyz'
+          expect(editor.getCursorScreenPosition()).toEqual [1, 0]
+          expect(vimState.getRegister('"').text).toBe '0'
+
+        it "deletes multiple characters with a count", ->
+          keydown('2')
+          keydown('x')
+          expect(editor.getText()).toBe 'abc\n0123\n\nxyz'
+          expect(editor.getCursorScreenPosition()).toEqual [1, 3]
+          expect(vimState.getRegister('"').text).toBe '45'
+
+          editor.setCursorScreenPosition([0, 1])
+          keydown('3')
+          keydown('x')
+          expect(editor.getText()).toBe 'a\n0123\n\nxyz'
+          expect(editor.getCursorScreenPosition()).toEqual [0, 0]
+          expect(vimState.getRegister('"').text).toBe 'bc'
+
+      describe "with vim-mode.wrapLeftRightMotion", ->
+        beforeEach ->
+          editor.setText("abc\n012345\n\nxyz")
+          editor.setCursorScreenPosition([1, 4])
+          atom.config.set('vim-mode.wrapLeftRightMotion', true)
+
+        it "deletes a character", ->
+          # copy of the earlier test because wrapLeftRightMotion should not affect it
+          keydown('x')
+          expect(editor.getText()).toBe 'abc\n01235\n\nxyz'
+          expect(editor.getCursorScreenPosition()).toEqual [1, 4]
+          expect(vimState.getRegister('"').text).toBe '4'
+
+          keydown('x')
+          expect(editor.getText()).toBe 'abc\n0123\n\nxyz'
+          expect(editor.getCursorScreenPosition()).toEqual [1, 3]
+          expect(vimState.getRegister('"').text).toBe '5'
+
+          keydown('x')
+          expect(editor.getText()).toBe 'abc\n012\n\nxyz'
+          expect(editor.getCursorScreenPosition()).toEqual [1, 2]
+          expect(vimState.getRegister('"').text).toBe '3'
+
+          keydown('x')
+          expect(editor.getText()).toBe 'abc\n01\n\nxyz'
+          expect(editor.getCursorScreenPosition()).toEqual [1, 1]
+          expect(vimState.getRegister('"').text).toBe '2'
+
+          keydown('x')
+          expect(editor.getText()).toBe 'abc\n0\n\nxyz'
+          expect(editor.getCursorScreenPosition()).toEqual [1, 0]
+          expect(vimState.getRegister('"').text).toBe '1'
+
+          keydown('x')
+          expect(editor.getText()).toBe 'abc\n\n\nxyz'
+          expect(editor.getCursorScreenPosition()).toEqual [1, 0]
+          expect(vimState.getRegister('"').text).toBe '0'
+
+        it "deletes multiple characters and newlines with a count", ->
+          atom.config.set('vim-mode.wrapLeftRightMotion', true)
+          keydown('2')
+          keydown('x')
+          expect(editor.getText()).toBe 'abc\n0123\n\nxyz'
+          expect(editor.getCursorScreenPosition()).toEqual [1, 3]
+          expect(vimState.getRegister('"').text).toBe '45'
+
+          editor.setCursorScreenPosition([0, 1])
+          keydown('3')
+          keydown('x')
+          expect(editor.getText()).toBe 'a0123\n\nxyz'
+          expect(editor.getCursorScreenPosition()).toEqual [0, 1]
+          expect(vimState.getRegister('"').text).toBe 'bc\n'
+
+          keydown('7')
+          keydown('x')
+          expect(editor.getText()).toBe 'ayz'
+          expect(editor.getCursorScreenPosition()).toEqual [0, 1]
+          expect(vimState.getRegister('"').text).toBe '0123\n\nx'
+
 
     describe "on an empty line", ->
       beforeEach ->
-        editor.setText("012345\n\nabcdef")
-        editor.setCursorScreenPosition([1, 0])
-        keydown('x')
+        editor.setText("abc\n012345\n\nxyz")
+        editor.setCursorScreenPosition([2, 0])
 
-      it "deletes nothing when cursor is on empty line", ->
-        expect(editor.getText()).toBe "012345\n\nabcdef"
+      it "deletes nothing on an empty line when vim-mode.wrapLeftRightMotion is false", ->
+        atom.config.set('vim-mode.wrapLeftRightMotion', false)
+        keydown('x')
+        expect(editor.getText()).toBe "abc\n012345\n\nxyz"
+        expect(editor.getCursorScreenPosition()).toEqual [2, 0]
+
+      it "deletes an empty line when vim-mode.wrapLeftRightMotion is true", ->
+        atom.config.set('vim-mode.wrapLeftRightMotion', true)
+        keydown('x')
+        expect(editor.getText()).toBe "abc\n012345\nxyz"
+        expect(editor.getCursorScreenPosition()).toEqual [2, 0]
+
 
   describe "the X keybinding", ->
     describe "on a line with content", ->
       beforeEach ->
-        editor.setText("012345")
-        editor.setCursorScreenPosition([0, 2])
+        editor.setText("ab\n012345")
+        editor.setCursorScreenPosition([1, 2])
 
       it "deletes a character", ->
         keydown('X', shift: true)
-        expect(editor.getText()).toBe '02345'
-        expect(editor.getCursorScreenPosition()).toEqual [0, 1]
+        expect(editor.getText()).toBe 'ab\n02345'
+        expect(editor.getCursorScreenPosition()).toEqual [1, 1]
         expect(vimState.getRegister('"').text).toBe '1'
 
         keydown('X', shift: true)
-        expect(editor.getText()).toBe '2345'
-        expect(editor.getCursorScreenPosition()).toEqual [0, 0]
+        expect(editor.getText()).toBe 'ab\n2345'
+        expect(editor.getCursorScreenPosition()).toEqual [1, 0]
         expect(vimState.getRegister('"').text).toBe '0'
 
         keydown('X', shift: true)
-        expect(editor.getText()).toBe '2345'
-        expect(editor.getCursorScreenPosition()).toEqual [0, 0]
+        expect(editor.getText()).toBe 'ab\n2345'
+        expect(editor.getCursorScreenPosition()).toEqual [1, 0]
         expect(vimState.getRegister('"').text).toBe '0'
+
+        atom.config.set('vim-mode.wrapLeftRightMotion', true)
+        keydown('X', shift: true)
+        expect(editor.getText()).toBe 'ab2345'
+        expect(editor.getCursorScreenPosition()).toEqual [0, 2]
+        expect(vimState.getRegister('"').text).toBe '\n'
+
 
     describe "on an empty line", ->
       beforeEach ->
         editor.setText("012345\n\nabcdef")
         editor.setCursorScreenPosition([1, 0])
-        keydown('X', shift: true)
 
-      it "deletes nothing when cursor is on empty line", ->
+      it "deletes nothing when vim-mode.wrapLeftRightMotion is false", ->
+        atom.config.set('vim-mode.wrapLeftRightMotion', false)
+        keydown('X', shift: true)
         expect(editor.getText()).toBe "012345\n\nabcdef"
+        expect(editor.getCursorScreenPosition()).toEqual [1, 0]
+
+      it "deletes the newline when wrapLeftRightMotion is true", ->
+        atom.config.set('vim-mode.wrapLeftRightMotion', true)
+        keydown('X', shift: true)
+        expect(editor.getText()).toBe "012345\nabcdef"
+        expect(editor.getCursorScreenPosition()).toEqual [0, 5]
 
   describe "the s keybinding", ->
     beforeEach ->
@@ -390,7 +504,7 @@ describe "Operators", ->
 
     describe "with multiple cursors", ->
       it "deletes each selection", ->
-        editor.setText("abcd\n1234\nABCD")
+        editor.setText("abcd\n1234\nABCD\n")
         editor.setCursorBufferPosition([0, 1])
         editor.addCursorAtBufferPosition([1, 2])
         editor.addCursorAtBufferPosition([2, 3])
@@ -403,6 +517,23 @@ describe "Operators", ->
           [0, 0],
           [1, 1],
           [2, 2],
+        ]
+
+      it "doesn't delete empty selections", ->
+        editor.setText("abcd\nabc\nabd")
+        editor.setCursorBufferPosition([0, 0])
+        editor.addCursorAtBufferPosition([1, 0])
+        editor.addCursorAtBufferPosition([2, 0])
+
+        keydown('d')
+        keydown('t')
+        commandModeInputKeydown('d')
+
+        expect(editor.getText()).toBe "d\nabc\nd"
+        expect(editor.getCursorBufferPositions()).toEqual [
+          [0, 0],
+          [1, 0],
+          [2, 0],
         ]
 
   describe "the D keybinding", ->
@@ -1364,6 +1495,13 @@ describe "Operators", ->
       keydown("e")
       expect(editor.getText()).toBe 'ABC\nXyZ'
 
+      editor.setCursorBufferPosition([1, 0])
+      keydown("g")
+      keydown("U", shift: true)
+      keydown("$")
+      expect(editor.getText()).toBe 'ABC\nXYZ'
+      expect(editor.getCursorScreenPosition()).toEqual [1, 2]
+
     it "makes the selected text uppercase in visual mode", ->
       keydown("V", shift: true)
       keydown("U", shift: true)
@@ -1377,8 +1515,9 @@ describe "Operators", ->
     it "makes text lowercase with g and motion", ->
       keydown("g")
       keydown("u")
-      keydown("e")
+      keydown("$")
       expect(editor.getText()).toBe 'abc\nXyZ'
+      expect(editor.getCursorScreenPosition()).toEqual [0, 2]
 
     it "makes the selected text lowercase in visual mode", ->
       keydown("V", shift: true)
@@ -1446,3 +1585,90 @@ describe "Operators", ->
       keydown '.'
       expect(editor.getText()).toBe "abcabc"
       expect(editor.getCursorScreenPosition()).toEqual [0, 5]
+
+  describe "the ctrl-a/ctrl-x keybindings", ->
+    beforeEach ->
+      editor.setText('123\nab45\ncd-67ef\nab-5\na-bcdef')
+      editor.setCursorBufferPosition [0, 0]
+      editor.addCursorAtBufferPosition [1, 0]
+      editor.addCursorAtBufferPosition [2, 0]
+      editor.addCursorAtBufferPosition [3, 3]
+      editor.addCursorAtBufferPosition [4, 0]
+
+    describe "increasing numbers", ->
+      it "increases the next number", ->
+        keydown('a', ctrl: true)
+        expect(editor.getCursorBufferPositions()).toEqual [[0, 2], [1, 3], [2, 4], [3, 3], [4, 0]]
+        expect(editor.getText()).toBe '124\nab46\ncd-66ef\nab-4\na-bcdef'
+
+      it "repeats with .", ->
+        keydown 'a', ctrl: true
+        keydown '.'
+        expect(editor.getCursorBufferPositions()).toEqual [[0, 2], [1, 3], [2, 4], [3, 3], [4, 0]]
+        expect(editor.getText()).toBe '125\nab47\ncd-65ef\nab-3\na-bcdef'
+
+      it "can have a count", ->
+        keydown '5'
+        keydown 'a', ctrl: true
+        expect(editor.getCursorBufferPositions()).toEqual [[0, 2], [1, 3], [2, 4], [3, 2], [4, 0]]
+        expect(editor.getText()).toBe '128\nab50\ncd-62ef\nab0\na-bcdef'
+
+      it "can make a negative number positive, change number of digits", ->
+        keydown '9'
+        keydown '9'
+        keydown 'a', ctrl: true
+        expect(editor.getCursorBufferPositions()).toEqual [[0, 2], [1, 4], [2, 3], [3, 3], [4, 0]]
+        expect(editor.getText()).toBe '222\nab144\ncd32ef\nab94\na-bcdef'
+
+      it "does nothing when cursor is after the number", ->
+        editor.setCursorBufferPosition [2, 5]
+        keydown 'a', ctrl: true
+        expect(editor.getCursorBufferPositions()).toEqual [[2, 5]]
+        expect(editor.getText()).toBe '123\nab45\ncd-67ef\nab-5\na-bcdef'
+
+      it "does nothing on an empty line", ->
+        editor.setText('\n')
+        editor.setCursorBufferPosition [0, 0]
+        editor.addCursorAtBufferPosition [1, 0]
+        keydown 'a', ctrl: true
+        expect(editor.getCursorBufferPositions()).toEqual [[0, 0], [1, 0]]
+        expect(editor.getText()).toBe '\n'
+
+    describe "decreasing numbers", ->
+      it "decreases the next number", ->
+        keydown('x', ctrl: true)
+        expect(editor.getCursorBufferPositions()).toEqual [[0, 2], [1, 3], [2, 4], [3, 3], [4, 0]]
+        expect(editor.getText()).toBe '122\nab44\ncd-68ef\nab-6\na-bcdef'
+
+      it "repeats with .", ->
+        keydown 'x', ctrl: true
+        keydown '.'
+        expect(editor.getCursorBufferPositions()).toEqual [[0, 2], [1, 3], [2, 4], [3, 3], [4, 0]]
+        expect(editor.getText()).toBe '121\nab43\ncd-69ef\nab-7\na-bcdef'
+
+      it "can have a count", ->
+        keydown '5'
+        keydown 'x', ctrl: true
+        expect(editor.getCursorBufferPositions()).toEqual [[0, 2], [1, 3], [2, 4], [3, 4], [4, 0]]
+        expect(editor.getText()).toBe '118\nab40\ncd-72ef\nab-10\na-bcdef'
+
+      it "can make a positive number negative, change number of digits", ->
+        keydown '9'
+        keydown '9'
+        keydown 'x', ctrl: true
+        expect(editor.getCursorBufferPositions()).toEqual [[0, 1], [1, 4], [2, 5], [3, 5], [4, 0]]
+        expect(editor.getText()).toBe '24\nab-54\ncd-166ef\nab-104\na-bcdef'
+
+      it "does nothing when cursor is after the number", ->
+        editor.setCursorBufferPosition [2, 5]
+        keydown 'x', ctrl: true
+        expect(editor.getCursorBufferPositions()).toEqual [[2, 5]]
+        expect(editor.getText()).toBe '123\nab45\ncd-67ef\nab-5\na-bcdef'
+
+      it "does nothing on an empty line", ->
+        editor.setText('\n')
+        editor.setCursorBufferPosition [0, 0]
+        editor.addCursorAtBufferPosition [1, 0]
+        keydown 'x', ctrl: true
+        expect(editor.getCursorBufferPositions()).toEqual [[0, 0], [1, 0]]
+        expect(editor.getText()).toBe '\n'

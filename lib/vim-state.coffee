@@ -94,6 +94,8 @@ class VimState
       'indent': => @linewiseAliasedOperator(Operators.Indent)
       'outdent': => @linewiseAliasedOperator(Operators.Outdent)
       'auto-indent': => @linewiseAliasedOperator(Operators.Autoindent)
+      'increase': => new Operators.Increase(@editor, @)
+      'decrease': => new Operators.Decrease(@editor, @)
       'move-left': => new Motions.MoveLeft(@editor, @)
       'move-up': => new Motions.MoveUp(@editor, @)
       'move-down': => new Motions.MoveDown(@editor, @)
@@ -125,8 +127,10 @@ class VimState
       'scroll-cursor-to-middle-leave': => new Scroll.ScrollCursorToMiddle(@editor, {leaveCursor: true})
       'scroll-cursor-to-bottom': => new Scroll.ScrollCursorToBottom(@editor)
       'scroll-cursor-to-bottom-leave': => new Scroll.ScrollCursorToBottom(@editor, {leaveCursor: true})
-      'scroll-half-screen-up': => new Scroll.ScrollHalfScreenUp(@editor)
-      'scroll-half-screen-down': => new Scroll.ScrollHalfScreenDown(@editor)
+      'scroll-half-screen-up': => new Motions.ScrollHalfUpKeepCursor(@editor, @)
+      'scroll-full-screen-up': => new Motions.ScrollFullUpKeepCursor(@editor, @)
+      'scroll-half-screen-down': => new Motions.ScrollHalfDownKeepCursor(@editor, @)
+      'scroll-full-screen-down': => new Motions.ScrollFullDownKeepCursor(@editor, @)
       'select-inside-word': => new TextObjects.SelectInsideWord(@editor)
       'select-inside-double-quotes': => new TextObjects.SelectInsideQuotes(@editor, '"', false)
       'select-inside-single-quotes': => new TextObjects.SelectInsideQuotes(@editor, '\'', false)
@@ -136,6 +140,7 @@ class VimState
       'select-inside-tags': => new TextObjects.SelectInsideBrackets(@editor, '>', '<', false)
       'select-inside-square-brackets': => new TextObjects.SelectInsideBrackets(@editor, '[', ']', false)
       'select-inside-parentheses': => new TextObjects.SelectInsideBrackets(@editor, '(', ')', false)
+      'select-inside-paragraph': => new TextObjects.SelectInsideParagraph(@editor, false)
       'select-a-word': => new TextObjects.SelectAWord(@editor)
       'select-around-double-quotes': => new TextObjects.SelectInsideQuotes(@editor, '"', true)
       'select-around-single-quotes': => new TextObjects.SelectInsideQuotes(@editor, '\'', true)
@@ -144,6 +149,7 @@ class VimState
       'select-around-angle-brackets': => new TextObjects.SelectInsideBrackets(@editor, '<', '>', true)
       'select-around-square-brackets': => new TextObjects.SelectInsideBrackets(@editor, '[', ']', true)
       'select-around-parentheses': => new TextObjects.SelectInsideBrackets(@editor, '(', ')', true)
+      'select-around-paragraph': => new TextObjects.SelectInsideParagraph(@editor, true)
       'register-prefix': (e) => @registerPrefix(e)
       'repeat': (e) => new Operators.Repeat(@editor, @)
       'repeat-search': (e) => new Motions.RepeatSearch(@editor, @)
@@ -371,6 +377,9 @@ class VimState
 
     @clearOpStack()
     selection.clear(autoscroll: false) for selection in @editor.getSelections()
+    for cursor in @editor.getCursors()
+      if cursor.isAtEndOfLine() and not cursor.isAtBeginningOfLine()
+        cursor.moveLeft()
 
     @updateStatusBar()
 
@@ -466,7 +475,7 @@ class VimState
   # Returns nothing.
   registerPrefix: (e) ->
     keyboardEvent = e.originalEvent?.originalEvent ? e.originalEvent
-    name = atom.keymap.keystrokeForKeyboardEvent(keyboardEvent)
+    name = atom.keymaps.keystrokeForKeyboardEvent(keyboardEvent)
     if name.lastIndexOf('shift-', 0) is 0
       name = name.slice(6)
     new Prefixes.Register(name)
@@ -478,7 +487,7 @@ class VimState
   # Returns nothing.
   repeatPrefix: (e) ->
     keyboardEvent = e.originalEvent?.originalEvent ? e.originalEvent
-    num = parseInt(atom.keymap.keystrokeForKeyboardEvent(keyboardEvent))
+    num = parseInt(atom.keymaps.keystrokeForKeyboardEvent(keyboardEvent))
     if @topOperation() instanceof Prefixes.Repeat
       @topOperation().addDigit(num)
     else
