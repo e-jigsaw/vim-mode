@@ -98,7 +98,7 @@ class Delete extends Operator
         selection.deleteSelectedText()
       for cursor in @editor.getCursors()
         if @motion.isLinewise?()
-          cursor.moveToBeginningOfLine()
+          cursor.skipLeadingWhitespace()
         else
           cursor.moveLeft() if cursor.isAtEndOfLine() and not cursor.isAtBeginningOfLine()
 
@@ -239,7 +239,7 @@ class Repeat extends Operator
 class Mark extends OperatorWithInput
   constructor: (@editor, @vimState, {@selectOptions}={}) ->
     super(@editor, @vimState)
-    @viewModel = new ViewModel(@, class: 'mark', singleChar: true, hidden: true)
+    @viewModel = new ViewModel(this, class: 'mark', singleChar: true, hidden: true)
 
   # Public: Creates the mark in the specified mark register (from user input)
   # at the current position

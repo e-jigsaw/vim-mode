@@ -116,10 +116,11 @@ describe "VimState", ->
         expect(editorElement.classList.contains('command-mode')).toBe(false)
 
     describe "selecting text", ->
-      it "puts the editor into visual mode", ->
+      beforeEach ->
         spyOn(_._, "now").andCallFake -> window.now
-
         editor.setText("abc def")
+
+      it "puts the editor into visual mode", ->
         expect(vimState.mode).toEqual 'command'
         editor.setSelectedBufferRanges([[[0, 0], [0, 3]]])
 
@@ -128,6 +129,12 @@ describe "VimState", ->
         expect(vimState.mode).toEqual 'visual'
         expect(vimState.submode).toEqual 'characterwise'
         expect(editor.getSelectedBufferRanges()).toEqual([[[0, 0], [0, 3]]])
+
+      it "handles the editor being destroyed shortly after selecting text", ->
+        editor.setSelectedBufferRanges([[[0, 0], [0, 3]]])
+        editor.destroy()
+        vimState.destroy()
+        advanceClock(100)
 
     describe "the i keybinding", ->
       beforeEach -> keydown('i')
@@ -172,18 +179,18 @@ describe "VimState", ->
       beforeEach -> editor.setText("012345\n\nabcdef")
 
       describe "when cursor is in the middle of the line", ->
-        beforeEach -> editor.setCursorScreenPosition([0,3])
+        beforeEach -> editor.setCursorScreenPosition([0, 3])
 
         it "moves the cursor to the left when exiting insert mode", ->
           keydown('escape')
-          expect(editor.getCursorScreenPosition()).toEqual [0,2]
+          expect(editor.getCursorScreenPosition()).toEqual [0, 2]
 
       describe "when cursor is at the beginning of line", ->
-        beforeEach -> editor.setCursorScreenPosition([1,0])
+        beforeEach -> editor.setCursorScreenPosition([1, 0])
 
         it "leaves the cursor at the beginning of line", ->
           keydown('escape')
-          expect(editor.getCursorScreenPosition()).toEqual [1,0]
+          expect(editor.getCursorScreenPosition()).toEqual [1, 0]
 
       describe "on a line with content", ->
         beforeEach -> editor.setCursorScreenPosition([0, 6])
@@ -297,7 +304,7 @@ describe "VimState", ->
       editor.setCursorScreenPosition([2, 2])
       keydown('`')
       commandModeInputKeydown('t')
-      expect(editor.getCursorScreenPosition()).toEqual [1,1]
+      expect(editor.getCursorScreenPosition()).toEqual [1, 1]
 
     it "real (tracking) marking functionality", ->
       editor.setCursorScreenPosition([2, 2])
@@ -308,7 +315,7 @@ describe "VimState", ->
       keydown('escape')
       keydown('`')
       commandModeInputKeydown('q')
-      expect(editor.getCursorScreenPosition()).toEqual [3,2]
+      expect(editor.getCursorScreenPosition()).toEqual [3, 2]
 
     it "real (tracking) marking functionality", ->
       editor.setCursorScreenPosition([2, 2])
@@ -320,4 +327,4 @@ describe "VimState", ->
       keydown('escape')
       keydown('`')
       commandModeInputKeydown('q')
-      expect(editor.getCursorScreenPosition()).toEqual [1,2]
+      expect(editor.getCursorScreenPosition()).toEqual [1, 2]
