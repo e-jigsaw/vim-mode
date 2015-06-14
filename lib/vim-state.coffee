@@ -46,6 +46,7 @@ class VimState
   destroy: ->
     unless @destroyed
       @destroyed = true
+      @emitter.emit 'did-destroy'
       @subscriptions.dispose()
       if @editor.isAlive()
         @deactivateInsertMode()
@@ -225,6 +226,9 @@ class VimState
   onDidFailToCompose: (fn) ->
     @emitter.on('failed-to-compose', fn)
 
+  onDidDestroy: (fn) ->
+    @emitter.on('did-destroy', fn)
+
   # Private: Removes all operations from the stack.
   #
   # Returns nothing.
@@ -301,7 +305,6 @@ class VimState
     else
       undefined
 
-
   # Private: Sets the value of a given register.
   #
   # name  - The name of the register to fetch.
@@ -332,7 +335,6 @@ class VimState
       register.type = 'linewise'
     else
       register.text += value.text
-
 
   # Private: Sets the value of a given mark.
   #
@@ -415,7 +417,7 @@ class VimState
   deactivateVisualMode: ->
     return unless @mode is 'visual'
     for selection in @editor.getSelections()
-      selection.cursor.moveLeft() unless selection.isEmpty()
+      selection.cursor.moveLeft() unless (selection.isEmpty() or selection.isReversed())
 
   # Private: Get the input operator that needs to be told about about the
   # typed undo transaction in a recently completed operation, if there
@@ -551,8 +553,7 @@ class VimState
 getChangesSinceCheckpoint = (buffer, checkpoint) ->
   {history} = buffer
 
-  # TODO: remove this conditional once Atom 0.200 has been out for a while.
-  if index = history.getCheckpointIndex?(checkpoint)
+  if (index = history.getCheckpointIndex(checkpoint))?
     history.undoStack.slice(index)
   else
     []
