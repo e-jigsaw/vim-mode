@@ -1,5 +1,3 @@
-{Disposable, CompositeDisposable} = require 'event-kit'
-
 ContentsByMode =
   'insert': ["status-bar-vim-mode-insert inline-block", "Insert"]
   'insert.replace': ["status-bar-vim-mode-insert inline-block", "Replace"]
@@ -27,6 +25,11 @@ class StatusBarManager
       [klass, text] = newContents
       @element.className = klass
       @element.textContent = text
+    else
+      @hide()
+
+  hide: ->
+    @element.className = 'hidden'
 
   # Private
 
